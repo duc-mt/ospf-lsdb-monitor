@@ -1,0 +1,10 @@
+# Python 3.10+ ; pyATS/Genie supports Linux and macOS (use WSL2 on Windows).
+# System package also required: Graphviz ("dot") - apt install graphviz / brew install graphviz
+netmiko>=4.3,<5
+pyats[library]>=24.1
+networkx>=3.0
+graphviz>=0.20
+PyYAML>=6.0
+
+# Tests only:  python -m pytest tests
+# pytest>=7

@@ -1,0 +1,16 @@
+
+          OSPF Process 1 with Router ID 10.0.0.1
+                          Area: 0.0.0.0
+                  Link State Database
+
+  Type      : Network
+  Ls id     : 192.168.1.1
+  Adv rtr   : 10.0.0.1
+  Ls age    : 571
+  Len       : 32
+  Options   :  E
+  seq#      : 80000004
+  chksum    : 0x2f08
+  Net mask  : 255.255.255.0
+     Attached Router: 10.0.0.1
+     Attached Router    10.0.0.3

@@ -1,0 +1,45 @@
+# OSPF Topology Tracker - settings
+#
+# Credentials can also come from the environment, which then wins over this file:
+#   OSPF_TRACKER_USERNAME, OSPF_TRACKER_PASSWORD, OSPF_TRACKER_SECRET
+# Do not commit real credentials.
+
+device:
+  host: 10.255.255.6            # seed router (management IP or DNS name)
+  username: admin
+  password: ""
+  secret: ""                 # enable secret; leave empty if the login lands in privileged mode
+
+  # Netmiko device type = which platform parser and commands are used:
+  #   cisco_ios, cisco_xe    Cisco IOS / IOS-XE   (Genie)
+  #   cisco_xr               Cisco IOS-XR         (Genie, default VRF)
+  #   cisco_nxos             Cisco NX-OS          (Genie, default VRF)
+  #   juniper_junos          Juniper Junos        (Genie)
+  #   arista_eos             Arista EOS           (text parser)
+  #   vyos                   VyOS / FRR           (text parser)
+  #   huawei, huawei_vrpv8   Huawei VRP           (text parser)
+  device_type: vyos
+
+  port: 22
+  conn_timeout: 15           # seconds to open the TCP connection
+  auth_timeout: 20           # seconds to authenticate
+  banner_timeout: 20         # seconds to wait for the SSH banner
+  read_timeout: 120          # seconds to wait for each LSDB command (large databases are slow)
+
+  # Optional: replace the built-in LSDB commands for this platform/version. "{pid}" is replaced by
+  # ospf_process_id. Needed e.g. if an Arista release only prints link details with "detail".
+  # commands:
+  #   router:  show ip ospf database router detail
+  #   network: show ip ospf database network detail
+
+# OSPF process/instance to track (a number, or a name on IOS-XR / NX-OS). Optional: leave out to use
+# the platform default. Ignored on platforms without process IDs (Junos, VyOS).
+ospf_process_id: 1
+
+# Safety guard against partial LSDBs. If the seed router loses an adjacency, its LSDB can shrink or
+# split; a flagged run is reported (and drawn) but does NOT replace the baseline, and the program
+# exits with code 3. Use --accept-changes when the change is real.
+guard:
+  enabled: true
+  min_node_retention: 0.7    # at least this fraction of previously known nodes must still be present
+  flag_partition: true       # flag runs where the topology splits into more disconnected parts

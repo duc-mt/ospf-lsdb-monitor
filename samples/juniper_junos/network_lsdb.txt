@@ -1,0 +1,15 @@
+
+    OSPF database, Area 0.0.0.0
+ Type       ID               Adv Rtr           Seq      Age  Opt  Cksum  Len
+Network *192.168.1.1      10.0.0.1         0x80000002   100  0x22 0xabcd  32
+  mask 255.255.255.0
+  attached router 10.0.0.1
+  attached router 10.0.0.3
+  Aging timer 00:58:20
+  Installed 00:01:40 ago, expires in 00:58:20, sent 00:01:38 ago
+  Last changed 00:10:00 ago, Change count: 1, Ours
+  Topology default (ID 0)
+    Type: Transit, Node ID: 10.0.0.1
+      Metric: 0, Bidirectional
+    Type: Transit, Node ID: 10.0.0.3
+      Metric: 0, Bidirectional

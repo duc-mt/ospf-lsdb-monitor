@@ -1,0 +1,16 @@
+
+            OSPF Router with ID (10.0.0.1) (Process ID 1)
+
+                Net Link States (Area 0)
+
+  LS age: 786
+  Options: (No TOS-capability, DC)
+  LS Type: Network Links
+  Link State ID: 192.168.1.1 (address of Designated Router)
+  Advertising Router: 10.0.0.1
+  LS Seq Number: 8000000F
+  Checksum: 0x3DD0
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.0.0.1
+        Attached Router: 10.0.0.3

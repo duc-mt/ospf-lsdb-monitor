@@ -1,0 +1,62 @@
+
+          OSPF Process 1 with Router ID 10.0.0.1
+                          Area: 0.0.0.0
+                  Link State Database
+
+  Type      : Router
+  Ls id     : 10.0.0.1
+  Adv rtr   : 10.0.0.1
+  Ls age    : 430
+  Len       : 60
+  Options   :  ABR  E
+  seq#      : 80000014
+  chksum    : 0xf615
+  Link count: 3
+     Link ID: 10.0.0.1
+     Data   : 255.255.255.255
+     Link Type: StubNet
+     Metric : 1
+     Link ID: 10.0.0.2
+     Data   : 10.12.0.1
+     Link Type: P-2-P
+     Metric : 10
+     Link ID: 192.168.1.1
+     Data   : 192.168.1.1
+     Link Type: TransNet
+     Metric : 1
+
+  Type      : Router
+  Ls id     : 10.0.0.2
+  Adv rtr   : 10.0.0.2
+  Ls age    : 430
+  Len       : 60
+  Options   :  ABR  E
+  seq#      : 80000014
+  chksum    : 0xf615
+  Link count: 2
+   * Link ID: 10.0.0.2
+     Data   : 255.255.255.255
+     Link Type: StubNet
+     Metric : 1
+   * Link ID: 10.0.0.1
+     Data   : 10.12.0.2
+     Link Type: P-2-P
+     Metric : 20
+
+  Type      : Router
+  Ls id     : 10.0.0.3
+  Adv rtr   : 10.0.0.3
+  Ls age    : 430
+  Len       : 60
+  Options   :  ABR  E
+  seq#      : 80000014
+  chksum    : 0xf615
+  Link count: 2
+     Link ID: 10.0.0.3
+     Data   : 255.255.255.255
+     Link Type: StubNet
+     Metric : 1
+     Link ID: 192.168.1.1
+     Data   : 192.168.1.3
+     Link Type: TransNet
+     Metric : 5

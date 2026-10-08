@@ -1,0 +1,14 @@
+
+            OSPF Router with ID(10.0.0.1) (Instance ID 1) (VRF default)
+
+  LS Age: 100
+  Options: (E DC)
+  LS Type: Network Links
+  Link State ID: 192.168.1.1 (address of Designated Router)
+  Advertising Router: 10.0.0.1
+  LS Seq Number: 0x80000002
+  Checksum: 0xabcd
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.0.0.1
+        Attached Router: 10.0.0.3

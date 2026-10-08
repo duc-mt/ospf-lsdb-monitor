@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv
+
+# Output & dynamic runtime data
+data/*.json
+!data/.gitkeep
+output/*.png
+output/*.jpg
+output/*.svg
+!output/.gitkeep
+
+# Sensitive config / credentials
+config/settings.local.yaml
+.env
+*.env
+*.pem
+*.key
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
