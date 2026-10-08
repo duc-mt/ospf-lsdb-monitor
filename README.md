@@ -6,8 +6,6 @@ Poll a seed router over SSH, parse its full OSPF LSDB, build a directed graph, d
 python main.py --replay samples/vyos
 ```
 
-![Topology diagram example](output/topology.png)
-
 ---
 
 ## Features
