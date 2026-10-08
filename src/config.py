@@ -16,9 +16,9 @@ DEFAULT_CONFIG_PATH = Path("config/settings.yaml")
 #: Environment variables that override credentials from the YAML file, so the
 #: password does not have to live on disk.
 ENV_OVERRIDES = {
-    "username": "OSPF_TRACKER_USERNAME",
-    "password": "OSPF_TRACKER_PASSWORD",
-    "secret": "OSPF_TRACKER_SECRET",
+    "username": "OSPF_MONITOR_USERNAME",
+    "password": "OSPF_MONITOR_PASSWORD",
+    "secret": "OSPF_MONITOR_SECRET",
 }
 
 # The process ID is interpolated into CLI commands, so only a conservative character

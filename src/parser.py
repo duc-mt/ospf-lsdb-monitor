@@ -182,11 +182,30 @@ class OSPFParser(BaseParser):
 
     @staticmethod
     def _add_edge(
-        edges: dict[tuple[str, str], dict], source: str, target: str, metric: int, link_type: str, area: str
+        edges: dict[tuple[str, str], dict], source: str, target: str, metric: int | None, link_type: str, area: str
     ) -> None:
-        """Add a directed edge; parallel links between the same pair keep the lowest metric."""
+        """Add a directed edge; parallel links between the same pair keep the lowest metric.
+
+        A ``None`` metric is silently skipped — the caller (``_add_router_link``) already
+        warns about it; this guard just prevents a ``TypeError`` if the check is ever bypassed.
+        """
+        if metric is None:
+            return
         existing = edges.get((source, target))
-        if existing is None or metric < existing["metric"]:
+        if existing is None:
             edges[(source, target)] = {
                 "source": source, "target": target, "metric": metric, "link_type": link_type, "area": area,
             }
+        elif metric < existing["metric"]:
+            logger.debug(
+                "Parallel link %s -> %s: replacing metric %s (area %s) with lower metric %s (area %s)",
+                source, target, existing["metric"], existing["area"], metric, area,
+            )
+            edges[(source, target)] = {
+                "source": source, "target": target, "metric": metric, "link_type": link_type, "area": area,
+            }
+        else:
+            logger.debug(
+                "Parallel link %s -> %s: keeping existing metric %s, discarding metric %s",
+                source, target, existing["metric"], metric,
+            )

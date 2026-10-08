@@ -13,6 +13,7 @@ venv.bak/
 
 # Output & dynamic runtime data
 data/*.json
+data/changelog.jsonl
 !data/.gitkeep
 output/*.png
 output/*.jpg

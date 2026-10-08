@@ -50,8 +50,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     help="read router_lsdb.txt / network_lsdb.txt from DIR instead of connecting to a device")
     ap.add_argument("--save-raw", type=Path, metavar="DIR",
                     help="write the raw CLI output to DIR (router_lsdb.txt, network_lsdb.txt); replayable with --replay")
+    ap.add_argument("--output", type=Path, default=OUTPUT_IMAGE, metavar="PATH",
+                    help="diagram output path; file extension sets the format (png, svg, pdf, ...) (default: %(default)s)")
+    ap.add_argument("--layout", default="dot", metavar="ENGINE",
+                    help="Graphviz layout engine — dot, neato, fdp, sfdp, circo, ... (default: %(default)s)")
     ap.add_argument("--accept-changes", action="store_true",
                     help="commit this run as the new baseline even if flagged as a possible partial LSDB")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="build and diff the topology without saving the new baseline or writing state files")
     ap.add_argument("-v", "--verbose", action="store_true", help="enable debug logging")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return ap.parse_args(argv)
@@ -130,17 +136,23 @@ def run(args: argparse.Namespace) -> int:
     poller = build_poller(args, settings)
     parser = OSPFParser(device_type=poller.device_type, process_id=poller.process_id)
     engine = GraphEngine(data_dir=DATA_DIR, guard=GuardConfig.from_settings(settings.get("guard")))
-    visualizer = TopologyVisualizer(output_path=OUTPUT_IMAGE)
+    visualizer = TopologyVisualizer(output_path=args.output, layout=args.layout)
 
     raw = poller.poll()                                                  # 1. Poll
     if args.save_raw:
         save_raw(raw, args.save_raw)
     parsed = parser.parse(raw.router, raw.network)                       # 2. Parse
-    graph, diff = engine.process(parsed, accept_changes=args.accept_changes)  # 3. Engine (diff, guard, save)
+    graph, diff = engine.process(                                        # 3. Engine
+        parsed, accept_changes=args.accept_changes, dry_run=args.dry_run,
+    )
 
     print_summary(raw, graph, diff)                                      # shown even if rendering fails below
+    if args.dry_run:
+        print("\n [DRY RUN] Topology diffed — no state files written.\n")
     image = visualizer.render(graph, diff)                               # 4. Visualize
     print(f"\n Diagram   : {image}\n")
+    if args.dry_run:
+        return EXIT_OK
     return EXIT_SUSPECT if not diff.baseline_updated else EXIT_OK
 
 

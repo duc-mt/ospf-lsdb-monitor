@@ -57,7 +57,9 @@ cd ospf-lsdb-monitor
 python3 -m venv venv
 source venv/bin/activate
 
-pip install -r requirements.txt
+# Install exact dependencies
+pip install -r requirements.lock
+# OR, to install loose dependencies: pip install -r requirements.txt
 ```
 
 ---
@@ -130,9 +132,9 @@ guard:
 These override anything in `settings.yaml` — use them in CI or to avoid storing passwords on disk:
 
 ```bash
-export OSPF_TRACKER_USERNAME=admin
-export OSPF_TRACKER_PASSWORD=s3cr3t
-export OSPF_TRACKER_SECRET=enable_pass   # optional
+export OSPF_MONITOR_USERNAME=admin
+export OSPF_MONITOR_PASSWORD=s3cr3t
+export OSPF_MONITOR_SECRET=enable_pass   # optional
 python main.py
 ```
 
@@ -148,7 +150,10 @@ Options:
   --device-type TYPE    Override device.device_type from the settings file
   --replay DIR          Parse saved CLI output instead of connecting via SSH
   --save-raw DIR        Also write the raw CLI output to DIR (replayable later)
+  --output PATH         Diagram output path; extension sets format (png, svg, pdf, ...) (default: output/topology.png)
+  --layout ENGINE       Graphviz layout engine: dot, neato, fdp, sfdp, circo, ... (default: dot)
   --accept-changes      Commit this run as the new baseline even if the guard flagged it
+  --dry-run             Build and diff the topology without saving any state files
   -v, --verbose         Enable debug logging
   --version             Show version and exit
 ```
@@ -189,6 +194,7 @@ State is kept in `data/`:
 | `current_state.json` | Topology from the last accepted run |
 | `previous_state.json` | Topology from the run before that (for crash recovery) |
 | `suspect_state.json` | Last run the guard rejected (not promoted to baseline) |
+| `changelog.jsonl` | Append-only run history (one JSON line per run) |
 
 ---
 

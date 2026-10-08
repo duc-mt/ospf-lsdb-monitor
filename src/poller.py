@@ -198,6 +198,8 @@ class DevicePoller(BasePoller):
         return output
 
 
+import concurrent.futures
+
 class FilePoller(BasePoller):
     """Replay previously saved CLI output (offline testing, demos, regression tests)."""
 
@@ -209,20 +211,35 @@ class FilePoller(BasePoller):
         directory: str | os.PathLike,
         device_type: str = "cisco_ios",
         process_id: str | None = None,
+        read_timeout: int = 10,
     ) -> None:
         self.directory = Path(directory)
         self.device_type = device_type
         self.process_id = process_id
+        self.read_timeout = read_timeout
+
+    def _read_with_timeout(self, path: Path) -> str:
+        if not path.exists():
+            return ""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(path.read_text, encoding="utf-8")
+            try:
+                return future.result(timeout=self.read_timeout)
+            except concurrent.futures.TimeoutError as exc:
+                raise PollerError(f"Timed out reading {path} after {self.read_timeout}s") from exc
+            except OSError as exc:
+                raise PollerError(f"Could not read replay file {path}: {exc}") from exc
 
     def poll(self) -> RawLSDB:
         """Read ``router_lsdb.txt`` (required) and ``network_lsdb.txt`` (optional)."""
         router_path = self.directory / self.ROUTER_FILE
         network_path = self.directory / self.NETWORK_FILE
-        try:
-            router = router_path.read_text(encoding="utf-8")
-            network = network_path.read_text(encoding="utf-8") if network_path.exists() else ""
-        except OSError as exc:
-            raise PollerError(f"Could not read replay files in {self.directory}: {exc}") from exc
+        
+        router = self._read_with_timeout(router_path)
+        if not router:
+            raise PollerError(f"Required file missing or empty: {router_path}")
+        network = self._read_with_timeout(network_path)
+        
         return RawLSDB(
             router=router,
             network=network,

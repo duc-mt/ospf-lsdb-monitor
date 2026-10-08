@@ -111,12 +111,16 @@ class TopologyDiff:
 class GraphEngine:
     """Builds, compares and persists the OSPF topology graph."""
 
-    def __init__(self, data_dir: str | os.PathLike = "data", guard: GuardConfig | None = None) -> None:
-        self.data_dir = Path(data_dir)
+    #: Default data directory — resolved from this file so it works regardless of CWD.
+    _DEFAULT_DATA_DIR: Path = Path(__file__).resolve().parent.parent / "data"
+
+    def __init__(self, data_dir: str | os.PathLike | None = None, guard: GuardConfig | None = None) -> None:
+        self.data_dir = Path(data_dir) if data_dir is not None else self._DEFAULT_DATA_DIR
         self.guard = guard or GuardConfig()
         self.current_path = self.data_dir / "current_state.json"
         self.previous_path = self.data_dir / "previous_state.json"
         self.suspect_path = self.data_dir / "suspect_state.json"
+        self.changelog_path = self.data_dir / "changelog.jsonl"
 
     # ------------------------------------------------------------------- build
     def build_graph(self, parsed: dict[str, Any]) -> nx.DiGraph:
@@ -279,12 +283,15 @@ class GraphEngine:
         return reasons
 
     # ------------------------------------------------------------------ pipeline
-    def process(self, parsed: dict[str, Any], accept_changes: bool = False) -> tuple[nx.DiGraph, TopologyDiff]:
+    def process(
+        self, parsed: dict[str, Any], accept_changes: bool = False, dry_run: bool = False
+    ) -> tuple[nx.DiGraph, TopologyDiff]:
         """Build the graph, diff it against the baseline and (if trustworthy) save it.
 
         Args:
             parsed: The parser's standardized dictionary.
             accept_changes: Commit this run as the new baseline even if the guard flagged it.
+            dry_run: Build and diff without writing any state files.
 
         Returns:
             ``(graph, diff)``. ``diff.suspect_reasons`` / ``diff.baseline_updated`` tell
@@ -297,15 +304,42 @@ class GraphEngine:
         diff = self.compare(baseline, graph)
         diff.suspect_reasons = self.assess(baseline, graph)
 
+        if dry_run:
+            diff.baseline_updated = False
+            logger.info("Dry run — topology built and diffed; no state files written")
+            return graph, diff
+
         if diff.suspect_reasons and not accept_changes:
             diff.baseline_updated = False
             self.save_graph(graph, self.suspect_path)
             logger.warning("Run looks like a partial LSDB; baseline kept. Observed state saved to %s",
                            self.suspect_path)
+            self._append_changelog(diff, graph)
             return graph, diff
 
         if self.rotate_state():
             logger.debug("Rotated %s -> %s", self.current_path, self.previous_path)
         self.save_graph(graph)
         self.suspect_path.unlink(missing_ok=True)  # any earlier suspect snapshot is now stale
+        self._append_changelog(diff, graph)
         return graph, diff
+
+    def _append_changelog(self, diff: TopologyDiff, graph: nx.DiGraph) -> None:
+        """Append a one-line JSON entry to ``data/changelog.jsonl`` (never raises)."""
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "status": "suspect" if (diff.suspect_reasons and not diff.baseline_updated) else "ok",
+            "nodes": graph.number_of_nodes(),
+            "edges": graph.number_of_edges(),
+            "added_nodes": len(diff.added_nodes),
+            "removed_nodes": len(diff.removed_nodes),
+            "added_edges": len(diff.added_edges),
+            "removed_edges": len(diff.removed_edges),
+            "changed_metrics": len(diff.changed_metrics),
+        }
+        try:
+            self.changelog_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.changelog_path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry) + "\n")
+        except OSError as exc:
+            logger.warning("Could not write to changelog %s: %s", self.changelog_path, exc)

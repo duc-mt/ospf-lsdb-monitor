@@ -1,11 +1,11 @@
 # OSPF LSDB Monitor - settings
 #
 # Credentials can also come from the environment, which then wins over this file:
-#   OSPF_TRACKER_USERNAME, OSPF_TRACKER_PASSWORD, OSPF_TRACKER_SECRET
+#   OSPF_MONITOR_USERNAME, OSPF_MONITOR_PASSWORD, OSPF_MONITOR_SECRET
 # Do not commit real credentials.
 
 device:
-  host: 10.255.255.6            # seed router (management IP or DNS name)
+  host: ""                       # seed router management IP or DNS name
   username: admin
   password: ""
   secret: ""                 # enable secret; leave empty if the login lands in privileged mode
