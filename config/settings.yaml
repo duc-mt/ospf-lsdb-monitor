@@ -1,4 +1,4 @@
-# OSPF Topology Tracker - settings
+# OSPF LSDB Monitor - settings
 #
 # Credentials can also come from the environment, which then wins over this file:
 #   OSPF_TRACKER_USERNAME, OSPF_TRACKER_PASSWORD, OSPF_TRACKER_SECRET

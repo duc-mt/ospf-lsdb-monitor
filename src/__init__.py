@@ -1,4 +1,4 @@
-"""OSPF Topology Tracker.
+"""OSPF LSDB Monitor.
 
 Pipeline: poll (SSH) -> parse (Genie) -> graph/diff (NetworkX) -> visualize (Graphviz).
 

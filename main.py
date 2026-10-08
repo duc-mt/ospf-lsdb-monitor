@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OSPF Topology Tracker - orchestrator.
+"""OSPF LSDB Monitor - orchestrator.
 
 Pipeline:  Poll (SSH) -> Parse (Genie / vendor adapter) -> Engine (NetworkX + diff) -> Visualize (Graphviz)
 

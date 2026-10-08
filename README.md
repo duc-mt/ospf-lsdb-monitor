@@ -1,4 +1,4 @@
-# OSPF Topology Tracker
+# OSPF LSDB Monitor
 
 Poll a seed router over SSH, parse its full OSPF LSDB, build a directed graph, diff it against the previous run, and render a topology diagram — all in one command.
 
@@ -51,8 +51,8 @@ brew install graphviz
 ## Installation
 
 ```bash
-git clone https://github.com/duc-mt/ospf-topology-tracker.git
-cd ospf-topology-tracker
+git clone https://github.com/duc-mt/ospf-lsdb-monitor.git
+cd ospf-lsdb-monitor
 
 python3 -m venv venv
 source venv/bin/activate
@@ -219,7 +219,7 @@ python -m pytest tests/ -v
 ## Project Structure
 
 ```
-ospf-topology-tracker/
+ospf-lsdb-monitor/
 ├── main.py                   # CLI entry point & pipeline orchestrator
 ├── config/
 │   └── settings.yaml         # Device and guard configuration (template)
