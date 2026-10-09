@@ -176,3 +176,32 @@ def test_attachment_edges_have_zero_metric():
     attachments = [e for e in parsed["edges"] if e["link_type"] == "attachment"]
     assert attachments
     assert all(e["metric"] == 0 for e in attachments)
+
+
+# ------------------------------------------------- interface addresses on edges
+def test_link_data_becomes_interface_address_on_the_edge():
+    lsdb = Lsdb(
+        router_lsas=[
+            RouterLsa("10.0.0.1", area="0.0.0.0", links=[
+                LinkRecord(KIND_P2P, "10.0.0.2", 10, link_data="10.12.0.1"),
+                LinkRecord(KIND_TRANSIT, "192.168.1.1", 1, link_data="192.168.1.1"),
+                LinkRecord(KIND_P2P, "10.0.0.9", 5),  # platform gave no address
+            ]),
+        ],
+        network_lsas=[NetworkLsa("192.168.1.1", dr="10.0.0.1", area="0.0.0.0", mask="/24", attached=["10.0.0.1"])],
+    )
+    edges = {(e["source"], e["target"]): e for e in _parser()._build(lsdb)["edges"]}
+    assert edges[("10.0.0.1", "10.0.0.2")]["interface_address"] == "10.12.0.1"
+    assert edges[("10.0.0.1", "net-192.168.1.1")]["interface_address"] == "192.168.1.1"
+    assert "interface_address" not in edges[("10.0.0.1", "10.0.0.9")]
+    # attachments are described by the network LSA, not by a router interface
+    assert "interface_address" not in edges[("net-192.168.1.1", "10.0.0.1")]
+
+
+def test_lower_metric_parallel_link_brings_its_own_interface_address():
+    lsdb = Lsdb(router_lsas=[RouterLsa("10.0.0.1", area="0.0.0.0", links=[
+        LinkRecord(KIND_P2P, "10.0.0.2", 100, link_data="10.1.0.1"),
+        LinkRecord(KIND_P2P, "10.0.0.2", 10, link_data="10.2.0.1"),  # cheaper link wins, address included
+    ])])
+    (edge,) = _parser()._build(lsdb)["edges"]
+    assert (edge["metric"], edge["interface_address"]) == (10, "10.2.0.1")

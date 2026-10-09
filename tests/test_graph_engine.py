@@ -144,3 +144,18 @@ def test_guard_settings_validation():
     assert GuardConfig.from_settings({"min_node_retention": 0.5}).min_node_retention == 0.5
     with pytest.raises(GraphEngineError):
         GuardConfig.from_settings({"min_node_retention": 3})
+
+
+def test_interface_address_survives_state_round_trip_and_reaches_removed_edge_records(tmp_path):
+    """The diagram labels removed links too, so the diff must carry each edge's interface address."""
+    engine = GraphEngine(tmp_path)
+    with_addr = topology()
+    for edge in with_addr["edges"]:
+        edge["interface_address"] = "10.9.9." + edge["source"].split(".")[-1]
+    engine.process(with_addr)
+    assert engine.load_graph(engine.current_path).edges["10.0.0.1", "10.0.0.2"]["interface_address"] == "10.9.9.1"
+
+    shrunk = deepcopy(with_addr)
+    shrunk["edges"] = [e for e in shrunk["edges"] if {e["source"], e["target"]} != {"10.0.0.1", "10.0.0.2"}]
+    _, diff = engine.process(shrunk)
+    assert {e["interface_address"] for e in diff.removed_edges} == {"10.9.9.1", "10.9.9.2"}

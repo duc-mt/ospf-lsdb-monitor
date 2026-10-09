@@ -94,7 +94,10 @@ class GenieJunosAdapter(LsdbAdapter):
                 metric = None if kind == KIND_STUB else int(link.get("metric"))
             except (TypeError, ValueError):
                 metric = None
-            router.links.append(LinkRecord(kind=kind, link_id=_clean(link.get("link-id")), metric=metric))
+            link_data = None if kind == KIND_STUB else (_clean(link.get("link-data")) or None)
+            router.links.append(
+                LinkRecord(kind=kind, link_id=_clean(link.get("link-id")), metric=metric, link_data=link_data)
+            )
         return router
 
     def _network_lsa(self, area: str, lsa: dict) -> NetworkLsa:

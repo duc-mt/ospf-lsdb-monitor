@@ -150,5 +150,8 @@ class GenieCiscoAdapter(LsdbAdapter):
                 logger.debug("Router %s: ignoring unsupported link type %r", router.router_id, link.get("type"))
                 continue
             metric = None if kind == KIND_STUB else self._metric(link)
-            router.links.append(LinkRecord(kind=kind, link_id=str(link.get("link_id")), metric=metric))
+            link_data = None if kind == KIND_STUB else (str(link.get("link_data")) if link.get("link_data") else None)
+            router.links.append(
+                LinkRecord(kind=kind, link_id=str(link.get("link_id")), metric=metric, link_data=link_data)
+            )
         return router

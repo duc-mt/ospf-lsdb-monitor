@@ -50,6 +50,7 @@ _TYPE = re.compile(r"^\s*Type\s*:\s*(\S+)", re.I)
 _LS_ID = re.compile(rf"^\s*Ls\s+id\s*:\s*({_IP})", re.I)
 _ADV = re.compile(rf"Adv\s+rtr\s*:\s*({_IP})", re.I)
 _LINK_ID = re.compile(rf"^\s*\*?\s*Link\s+ID\s*:\s*({_IP})", re.I)
+_LINK_DATA = re.compile(rf"^\s*Data\s*:\s*({_IP})", re.I)
 _LINK_TYPE = re.compile(r"^\s*Link\s+Type\s*:\s*(\S+)", re.I)
 _METRIC = re.compile(r"^\s*Metric\s*:\s*(\d+)", re.I)
 _MASK = re.compile(r"^\s*Net\s+mask\s*:\s*(\S+)", re.I)
@@ -131,6 +132,8 @@ class HuaweiAdapter(LsdbAdapter):
                 if (m := _LINK_ID.match(line)):
                     link = LinkRecord(kind="", link_id=m.group(1), metric=None)
                     cur.links.append(link)
+                elif link is not None and (m := _LINK_DATA.match(line)):
+                    link.link_data = m.group(1)  # mask for stub links; only used for non-stub
                 elif link is not None and (m := _LINK_TYPE.match(line)):
                     link.kind = link_kind(m.group(1)) or ""
                 elif link is not None and (m := _METRIC.match(line)):

@@ -52,6 +52,7 @@ _LS_ID = re.compile(rf"^\s*Link\s+State\s+ID\s*:\s*({_IP})", re.I)
 _ADV = re.compile(rf"^\s*Advertising\s+Router\s*:\s*({_IP})", re.I)
 _LINK = re.compile(r"^\s*Link\s+connected\s+to\s*:\s*(?:an?\s+)?(.+?)\s*$", re.I)
 _LINK_ID = re.compile(rf"^\s*\(Link\s+ID\)\s*[^:]*:\s*({_IP})", re.I)
+_LINK_DATA = re.compile(rf"^\s*\(Link\s+Data\)\s*[^:]*:\s*({_IP})", re.I)
 _METRIC = re.compile(r"^\s*TOS\s+0\s+Metrics?\s*:\s*(\d+)", re.I)
 _MASK = re.compile(r"^\s*Network\s+Mask\s*:\s*(\S+)", re.I)
 _ATTACHED = re.compile(rf"^\s*Attached\s+Router\s*:\s*({_IP})", re.I)
@@ -172,6 +173,9 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                     cur.links.append(link)
             elif link is not None and (m := _LINK_ID.match(line)):
                 link.link_id = m.group(1)
+            elif link is not None and (m := _LINK_DATA.match(line)):
+                if link.kind != KIND_STUB:  # for stubs this field is the network mask
+                    link.link_data = m.group(1)
             elif link is not None and (m := _METRIC.match(line)):
                 link.metric = int(m.group(1))
             elif (m := _MASK.match(line)):

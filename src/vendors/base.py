@@ -31,11 +31,15 @@ class LinkRecord:
 
     ``link_id`` is the neighbor router-ID for p2p/virtual links and the DR's
     interface address for transit links (same meaning on every platform).
+    ``link_data`` is the advertising router's own interface address on that link
+    (the "Link Data" field; an ifIndex on unnumbered links). It is what lets the
+    diagram label each link end with something a person can find on the box.
     """
 
     kind: str
     link_id: str
     metric: int | None
+    link_data: str | None = None
 
 
 @dataclass

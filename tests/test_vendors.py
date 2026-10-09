@@ -181,3 +181,21 @@ def test_helpers():
     assert link_kind("P-2-P") == "p2p" and link_kind("TransNet") == "transit"
     assert link_kind("a Stub Network") == "stub" and link_kind("Virtual Link") == "virtual"
     assert link_kind("something else") is None
+
+
+# --------------------------------------- every platform reports the interface address
+EXPECTED_INTERFACES = {
+    ("10.0.0.1", "10.0.0.2"): "10.12.0.1",
+    ("10.0.0.2", "10.0.0.1"): "10.12.0.2",
+    ("10.0.0.1", "net-192.168.1.1"): "192.168.1.1",
+    ("10.0.0.3", "net-192.168.1.1"): "192.168.1.3",
+}
+
+
+@pytest.mark.parametrize("vendor", VENDORS)
+def test_vendor_sample_reports_interface_addresses(vendor):
+    """'Link Data' (the router's own interface address) survives every adapter, stubs excluded."""
+    parsed = OSPFParser(vendor).parse(*load(vendor))
+    got = {(e["source"], e["target"]): e.get("interface_address")
+           for e in parsed["edges"] if e["link_type"] != "attachment"}
+    assert got == EXPECTED_INTERFACES

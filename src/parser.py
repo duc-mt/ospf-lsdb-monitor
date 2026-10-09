@@ -160,7 +160,8 @@ class OSPFParser(BaseParser):
             # link_id is the neighbor's router ID.
             target = link.link_id
             self._upsert_node(nodes, target, "router", area)
-        self._add_edge(edges, router_id, target, link.metric, _EDGE_TYPE[link.kind], area)
+        self._add_edge(edges, router_id, target, link.metric, _EDGE_TYPE[link.kind], area,
+                       interface_address=link.link_data)
 
     @staticmethod
     def _prefix(address: str, mask: str | None) -> str | None:
@@ -182,28 +183,31 @@ class OSPFParser(BaseParser):
 
     @staticmethod
     def _add_edge(
-        edges: dict[tuple[str, str], dict], source: str, target: str, metric: int | None, link_type: str, area: str
+        edges: dict[tuple[str, str], dict], source: str, target: str, metric: int | None, link_type: str, area: str,
+        interface_address: str | None = None,
     ) -> None:
         """Add a directed edge; parallel links between the same pair keep the lowest metric.
+
+        ``interface_address`` is the source router's own interface address on the link
+        (omitted for network -> router attachments, which have none).
 
         A ``None`` metric is silently skipped — the caller (``_add_router_link``) already
         warns about it; this guard just prevents a ``TypeError`` if the check is ever bypassed.
         """
         if metric is None:
             return
+        record = {"source": source, "target": target, "metric": metric, "link_type": link_type, "area": area}
+        if interface_address:
+            record["interface_address"] = interface_address
         existing = edges.get((source, target))
         if existing is None:
-            edges[(source, target)] = {
-                "source": source, "target": target, "metric": metric, "link_type": link_type, "area": area,
-            }
+            edges[(source, target)] = record
         elif metric < existing["metric"]:
             logger.debug(
                 "Parallel link %s -> %s: replacing metric %s (area %s) with lower metric %s (area %s)",
                 source, target, existing["metric"], existing["area"], metric, area,
             )
-            edges[(source, target)] = {
-                "source": source, "target": target, "metric": metric, "link_type": link_type, "area": area,
-            }
+            edges[(source, target)] = record
         else:
             logger.debug(
                 "Parallel link %s -> %s: keeping existing metric %s, discarding metric %s",
