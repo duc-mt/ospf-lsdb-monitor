@@ -14,6 +14,7 @@ python main.py --replay samples/vyos
 - **Live polling** over SSH (Netmiko) or **offline replay** from saved CLI output
 - **Change detection** — added/removed nodes, added/removed links, metric changes
 - **Partial-LSDB guard** — detects when the seed router has lost an adjacency and refuses to overwrite a good baseline with a degraded view
+- **Readable diagrams** — one line per link with the cost and interface address at each end, area clusters, automatic layout direction, diff highlighting
 - **Atomic state rotation** — `current_state.json` → `previous_state.json`, crash-safe
 - **Credential-safe** — passwords never have to touch disk; `OSPF_TRACKER_*` env vars override the config file
 
@@ -111,6 +112,15 @@ guard:
   enabled: true
   min_node_retention: 0.7  # flag run if > 30% of known nodes vanish
   flag_partition: true      # flag run if the graph splits into more pieces than before
+
+visualization:             # every key optional; these are the defaults
+  rankdir: auto            # auto = left-to-right when a node has 6+ neighbours, else top-to-bottom (or TB/LR/BT/RL)
+  router_shape: box3d      # box3d | box | circle | ellipse | oval | doublecircle
+  show_interfaces: true    # interface address printed next to each cost
+  cost_weighted_lines: true  # cheaper links are drawn thicker
+  area_clusters: true      # dashed box per OSPF area when there are several
+  # names:                 # optional host names shown above the router ID
+  #   10.255.255.1: core-1
 ```
 
 ### Supported device types
@@ -124,6 +134,22 @@ guard:
 | `arista_eos` | Arista EOS |
 | `vyos` | VyOS / FRR |
 | `huawei` / `huawei_vrpv8` | Huawei VRP |
+
+### Reading the diagram
+
+| Element | Meaning |
+|---|---|
+| Blue 3D box | Router (host name above the router ID if configured under `visualization.names`) |
+| Yellow diamond | Transit network: prefix and Designated Router |
+| Grey dashed node | Referenced by a link but has no LSA of its own in the database (`no LSA`) |
+| One line per link | Both directions are merged; a router-to-network line carries the router's cost and interface address in the middle |
+| Point-to-point line | Each end shows the cost *advertised by that router* and its interface address; a symmetric link with no addresses gets one centred label |
+| Line thickness | Cost: cheaper links are thicker, so preferred paths stand out |
+| Dashed cluster | OSPF area (drawn only when the database holds several); area border routers sit outside the boxes |
+| Green / red dashed / orange | New / removed (kept in the drawing for this run) / metric changed (`old→new`) |
+| Title | Counts of routers, transit networks and links; a warning if the topology is split into disconnected parts |
+
+OSPF does not carry interface names or speeds, so the interface address (the "Link Data" field; an ifIndex on unnumbered links) is the identifier shown.
 
 ### Credentials via environment variables
 

@@ -43,3 +43,15 @@ guard:
   enabled: true
   min_node_retention: 0.7    # at least this fraction of previously known nodes must still be present
   flag_partition: true       # flag runs where the topology splits into more disconnected parts
+
+# How the diagram is drawn. Every key is optional; the values below are the defaults.
+visualization:
+  rankdir: auto              # auto = left-to-right when some node has 6+ neighbours, else top-to-bottom
+                             # (or force TB / LR / BT / RL)
+  router_shape: box3d        # box3d | box | circle | ellipse | oval | doublecircle
+  show_interfaces: true      # print the advertising router's interface address next to each cost
+  cost_weighted_lines: true  # cheaper links are drawn thicker, so preferred paths stand out
+  area_clusters: true        # dashed box per OSPF area when the database holds more than one area
+  # names:                   # optional host names, shown above the router ID
+  #   10.255.255.1: core-1
+  #   10.255.255.5: edge-1

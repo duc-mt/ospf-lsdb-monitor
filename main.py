@@ -29,7 +29,7 @@ from src.graph_engine import GraphEngine, GuardConfig, TopologyDiff
 from src.parser import OSPFParser
 from src.poller import BasePoller, DevicePoller, FilePoller, RawLSDB
 from src.vendors import supported_device_types
-from src.visualizer import TopologyVisualizer
+from src.visualizer import TopologyVisualizer, VisualOptions
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = BASE_DIR / "config" / "settings.yaml"
@@ -136,7 +136,10 @@ def run(args: argparse.Namespace) -> int:
     poller = build_poller(args, settings)
     parser = OSPFParser(device_type=poller.device_type, process_id=poller.process_id)
     engine = GraphEngine(data_dir=DATA_DIR, guard=GuardConfig.from_settings(settings.get("guard")))
-    visualizer = TopologyVisualizer(output_path=args.output, layout=args.layout)
+    visualizer = TopologyVisualizer(
+        output_path=args.output, layout=args.layout,
+        options=VisualOptions.from_settings(settings.get("visualization")),
+    )
 
     raw = poller.poll()                                                  # 1. Poll
     if args.save_raw:
