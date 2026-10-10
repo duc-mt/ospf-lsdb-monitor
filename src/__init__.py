@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   __init__.py
@@ -19,7 +20,6 @@ This module holds the few things every stage shares: the base exception type
 and the helpers that define how nodes are identified and ordered.
 """
 
-from __future__ import annotations
 
 import ipaddress
 

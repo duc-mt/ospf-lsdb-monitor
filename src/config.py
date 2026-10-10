@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   config.py
@@ -13,7 +14,6 @@ Notes:         Requires Python 3.8+
 """
 """Settings loading and validation shared by the poller and the orchestrator."""
 
-from __future__ import annotations
 
 import os
 import re

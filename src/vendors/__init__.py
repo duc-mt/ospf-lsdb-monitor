@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   __init__.py
@@ -33,7 +34,6 @@ arista_eos             Cisco-style text; router-LSA layout taken from Arista's l
 huawei / huawei_vrpv8  VRP text; layout taken from Huawei's command reference
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable

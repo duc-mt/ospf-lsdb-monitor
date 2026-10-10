@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   graph_engine.py
@@ -36,7 +37,6 @@ the write, the next run finds no current_state.json and falls back to
 previous_state.json.
 """
 
-from __future__ import annotations
 
 import json
 import logging

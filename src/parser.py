@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   parser.py
@@ -44,7 +45,6 @@ are referenced by a link but have no LSA of their own in the polled database
 (typically routers or DRs in a different area).
 """
 
-from __future__ import annotations
 
 import ipaddress
 import logging

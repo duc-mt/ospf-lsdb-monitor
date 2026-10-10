@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   main.py
@@ -29,7 +30,6 @@ Exit codes: 0 ok | 1 expected failure (config, SSH, parse, ...) | 2 unexpected e
             3 run flagged as a possible partial LSDB (baseline kept, see --accept-changes)
 """
 
-from __future__ import annotations
 
 import argparse
 import logging

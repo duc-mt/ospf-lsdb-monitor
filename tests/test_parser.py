@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   test_parser.py
@@ -17,7 +18,6 @@ These tests bypass the vendor adapter and call ``_build()`` directly with
 crafted ``Lsdb`` objects, so they run without Genie or any network device.
 """
 
-from __future__ import annotations
 
 import pytest
 

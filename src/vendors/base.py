@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   base.py
@@ -19,7 +20,6 @@ builder in ``src/parser.py``, the graph engine, the visualizer - only ever sees
 this model, so adding a platform never touches them.
 """
 
-from __future__ import annotations
 
 import ipaddress
 from abc import ABC, abstractmethod

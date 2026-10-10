@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   genie_cisco.py
@@ -23,7 +24,6 @@ commands, see ``src/vendors/__init__.py``) differ. Genie does all text parsing.
 Only the default VRF is read.
 """
 
-from __future__ import annotations
 
 import importlib
 import logging

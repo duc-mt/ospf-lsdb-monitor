@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   genie_junos.py
@@ -24,7 +25,6 @@ Commands used: ``show ospf database router extensive`` and
 so ``process_id`` is not applicable here.
 """
 
-from __future__ import annotations
 
 import importlib
 import logging

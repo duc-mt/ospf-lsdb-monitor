@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   poller.py
@@ -20,7 +21,6 @@ two LSDB commands (taken from the vendor profile in ``src/vendors``).
 which is handy for offline testing and for capturing samples (``--save-raw``).
 """
 
-from __future__ import annotations
 
 import logging
 import os

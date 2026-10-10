@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   cisco_style.py
@@ -34,7 +35,6 @@ two (``a Stub Network`` vs ``Stub Network``, ``Metrics`` vs ``Metric``, ...).
 Only the default VRF is read.
 """
 
-from __future__ import annotations
 
 import logging
 import re

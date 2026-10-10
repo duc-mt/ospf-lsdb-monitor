@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   visualizer.py
@@ -38,7 +39,6 @@ network topologies):
   ABRs (several areas) stay outside every cluster.
 """
 
-from __future__ import annotations
 
 import logging
 import math

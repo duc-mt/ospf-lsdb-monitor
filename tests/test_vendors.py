@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   test_vendors.py
@@ -19,7 +20,6 @@ them. Cisco IOS-XR and NX-OS are exercised through Genie's own expected-output
 fixtures (the raw device text is not shipped with Genie).
 """
 
-from __future__ import annotations
 
 import importlib.util
 from pathlib import Path

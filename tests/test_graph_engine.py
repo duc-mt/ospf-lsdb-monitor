@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   test_graph_engine.py
@@ -13,7 +14,6 @@ Notes:         Requires Python 3.8+
 """
 """Graph engine tests: diffing, state rotation and the partial-LSDB guard."""
 
-from __future__ import annotations
 
 import json
 from copy import deepcopy

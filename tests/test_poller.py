@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   test_poller.py
@@ -21,7 +22,6 @@ These tests cover:
 - ``GraphEngine._append_changelog()`` (#11 fix)
 """
 
-from __future__ import annotations
 
 import json
 import os

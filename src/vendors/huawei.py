@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ==============================================================================
 Module Name:   huawei.py
@@ -38,7 +39,6 @@ Genie has no Huawei parsers. The layout is documented by Huawei and is a plain
 Some releases print a ``*`` before ``Link ID``; the patterns accept both forms.
 """
 
-from __future__ import annotations
 
 import logging
 import re
