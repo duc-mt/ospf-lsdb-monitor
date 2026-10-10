@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   config.py
-Description:   Settings loading and validation shared by the poller and the orchestrator.
+Description:   Source module config.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

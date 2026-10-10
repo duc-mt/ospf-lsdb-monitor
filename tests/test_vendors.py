@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   test_vendors.py
-Description:   Vendor parser tests.  Every raw-text vendor sample under ``samples/<device_type>/`` describes the *same* small topology in that vendor's own CLI layout, so one expectation covers all of them. Cisco IOS-XR and NX-OS are exercised through Genie's own expected-output fixtures (the raw device text is not shipped with Genie).
+Description:   Source module test_vendors.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

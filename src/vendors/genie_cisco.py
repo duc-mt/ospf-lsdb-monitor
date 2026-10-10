@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   genie_cisco.py
-Description:   Genie adapter for the Cisco family: IOS, IOS-XE, IOS-XR and NX-OS.  All four platforms share Genie's OSPF schema::      vrf -> address_family -> instance -> areas -> database -> lsa_types         -> {1|2} -> lsas -> <lsa> -> ospfv2 -> body -> router.links / network  so one walker serves them all; only the Genie parser classes (and the CLI commands, see ``src/vendors/__init__.py``) differ. Genie does all text parsing. Only the default VRF is read.
+Description:   Source module genie_cisco.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

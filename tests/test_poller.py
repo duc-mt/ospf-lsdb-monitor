@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   test_poller.py
-Description:   Tests for the polling and configuration layer.  These tests cover: - ``OSPF_MONITOR_*`` environment variable overrides (#3 fix) - ``DevicePoller`` validation of missing / empty credentials - ``FilePoller`` replay - ``GraphEngine.process(dry_run=True)`` (#8 fix) - ``GraphEngine._append_changelog()`` (#11 fix)
+Description:   Source module test_poller.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

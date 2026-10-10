@@ -1,9 +1,15 @@
-
-"""Unit tests for TopologyVisualizer.
-
-These tests verify that ``build_digraph()`` produces correct Graphviz DOT
-source for all node/edge states — without actually invoking the ``dot``
-executable (no system Graphviz required).
+"""
+==============================================================================
+Module Name:   test_visualizer.py
+Description:   Source module test_visualizer.py.
+Author:        Mai Tan Duc <ducmai.network@gmail.com>
+Created:       2026-10-10
+Version:       1.0.0
+License:       MIT
+==============================================================================
+Usage:         python3 test_visualizer.py [options]
+Notes:         Requires Python 3.8+
+==============================================================================
 """
 
 from __future__ import annotations

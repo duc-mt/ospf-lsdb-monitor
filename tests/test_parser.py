@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   test_parser.py
-Description:   Unit tests for OSPFParser internals.  These tests bypass the vendor adapter and call ``_build()`` directly with crafted ``Lsdb`` objects, so they run without Genie or any network device.
+Description:   Source module test_parser.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

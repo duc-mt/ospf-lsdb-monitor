@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   genie_junos.py
-Description:   Genie adapter for Juniper Junos.  Genie's Junos parser (``ShowOspfDatabaseExtensive``) returns the XML-style ``ospf-database-information`` schema and models **one area per run**. A router in several areas prints several ``OSPF database, Area x`` blocks, so the output is cut into one block per area first (a plain string split on that header, no LSA parsing) and each block goes through Genie on its own.  Commands used: ``show ospf database router extensive`` and ``show ospf database network extensive``. Junos has no numeric OSPF process ID, so ``process_id`` is not applicable here.
+Description:   Source module genie_junos.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

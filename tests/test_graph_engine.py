@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   test_graph_engine.py
-Description:   Graph engine tests: diffing, state rotation and the partial-LSDB guard.
+Description:   Source module test_graph_engine.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   base.py
-Description:   Vendor-neutral building blocks shared by every platform adapter.  Each platform adapter turns that platform's raw ``show`` output into the small intermediate model below (``Lsdb``). Everything downstream - the node/edge builder in ``src/parser.py``, the graph engine, the visualizer - only ever sees this model, so adding a platform never touches them.
+Description:   Source module base.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0

@@ -1,8 +1,7 @@
-
 """
 ==============================================================================
 Module Name:   __init__.py
-Description:   OSPF LSDB Monitor.  Pipeline: poll (SSH) -> parse (Genie) -> graph/diff (NetworkX) -> visualize (Graphviz).  This module holds the few things every stage shares: the base exception type and the helpers that define how nodes are identified and ordered.
+Description:   Source module __init__.py.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
