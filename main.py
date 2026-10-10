@@ -21,11 +21,12 @@ import sys
 from pathlib import Path
 
 from src import TrackerError, __version__
-from src.config import load_settings, parse_process_id
+from src.config import load_settings, parse_process_id, stale_lsa_age
 from src.graph_engine import GraphEngine, GuardConfig, TopologyDiff
-from src.parser import OSPFParser
+from src.parser import DEFAULT_STALE_AGE, OSPFParser
 from src.poller import BasePoller, DevicePoller, FilePoller, RawLSDB
 from src.vendors import supported_device_types
+from src.vendors.base import SourceDetail
 from src.visualizer import TopologyVisualizer, VisualOptions
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -63,7 +64,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--save-raw",
         type=Path,
         metavar="DIR",
-        help="write the raw CLI output to DIR (router_lsdb.txt, network_lsdb.txt); replayable with --replay",
+        help="write the raw CLI output to DIR (router_lsdb.txt, network_lsdb.txt, neighbors.txt); replayable with --replay",
     )
     ap.add_argument(
         "--output",
@@ -88,7 +89,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="build and diff the topology without saving the new baseline or writing state files",
     )
-    ap.add_argument("-v", "--verbose", action="store_true", help="enable debug logging")
+    ap.add_argument("-v", "--verbose", action="action", help="enable debug logging") if False else ap.add_argument("-v", "--verbose", action="store_true", help="enable debug logging")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return ap.parse_args(argv)
 
@@ -103,6 +104,8 @@ def print_summary(raw: RawLSDB, graph, diff: TopologyDiff) -> None:
     print(
         f" Topology  : {graph.number_of_nodes()} nodes, {graph.number_of_edges()} directed links"
     )
+
+    print_data_quality(graph)
 
     if diff.suspect_reasons:
         verdict = (
@@ -152,12 +155,42 @@ def print_summary(raw: RawLSDB, graph, diff: TopologyDiff) -> None:
     )
 
 
+def print_data_quality(graph) -> None:
+    """Report what the LSDB itself says about how far it can be trusted (nothing is printed when all is well)."""
+    meta = graph.graph
+    stale = meta.get("stale_nodes") or []
+    one_way = meta.get("one_way_links") or 0
+    issues = meta.get("adjacency_issues") or []
+    abrs = [n for n, a in graph.nodes(data=True) if a.get("abr")]
+    asbrs = [n for n, a in graph.nodes(data=True) if a.get("asbr")]
+    if abrs or asbrs:
+        print(f" Roles     : {len(abrs)} ABR ({', '.join(abrs) or '-'}), {len(asbrs)} ASBR ({', '.join(asbrs) or '-'})")
+    if not (stale or one_way or issues):
+        return
+    print("\n Data quality - things the LSDB itself does not make obvious:")
+    for node in stale:
+        minutes = graph.nodes[node].get("lsa_age", 0) // 60
+        print(f"   STALE      {node}: its LSA is {minutes} min old and no longer being refreshed - "
+              "the router is probably gone")
+    if one_way:
+        print(f"   ONE-WAY    {one_way} link(s) are advertised by one end only; OSPF itself ignores such links")
+        for u, v, attrs in graph.edges(data=True):
+            if attrs.get("link_state") == "one-way":
+                print(f"              {u} -> {v}")
+    for issue in issues:
+        where = f" on {issue['interface']}" if issue.get("interface") else ""
+        known = "" if issue.get("in_lsdb") else "  (router not in the LSDB)"
+        print(f"   ADJACENCY  {issue['source']}: neighbour {issue['neighbor']} is {issue['state']}{where}{known}")
+
+
 def save_raw(raw: RawLSDB, directory: Path) -> None:
     """Keep the raw CLI output so a run can be replayed or attached to a bug report."""
     try:
         directory.mkdir(parents=True, exist_ok=True)
         (directory / FilePoller.ROUTER_FILE).write_text(raw.router, encoding="utf-8")
         (directory / FilePoller.NETWORK_FILE).write_text(raw.network, encoding="utf-8")
+        if raw.neighbors:
+            (directory / FilePoller.NEIGHBORS_FILE).write_text(raw.neighbors, encoding="utf-8")
     except OSError as exc:
         raise TrackerError(
             f"Could not write raw capture to {directory}: {exc}"
@@ -198,7 +231,23 @@ def run(args: argparse.Namespace) -> int:
     raw = poller.poll()  # 1. Poll
     if args.save_raw:
         save_raw(raw, args.save_raw)
-    parsed = parser.parse(raw.router, raw.network)  # 2. Parse
+    lsdb = parser.parse_lsdb(raw.router, raw.network)
+    details = []
+    if raw.neighbors.strip():
+        try:
+            neighbors = parser.parse_neighbors(raw.neighbors)
+        except TrackerError as exc:
+            logger.warning("Neighbour table ignored: %s", exc)
+        else:
+            if neighbors is not None:
+                details.append(SourceDetail("seed", lsdb.router_id, neighbors))
+
+    parsed = parser.build_topology(
+        lsdb,
+        {"device_type": poller.device_type},
+        details,
+        stale_age=stale_lsa_age(settings, DEFAULT_STALE_AGE),
+    )  # 2. Parse
     graph, diff = engine.process(  # 3. Engine
         parsed,
         accept_changes=args.accept_changes,

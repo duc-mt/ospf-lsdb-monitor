@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import re
 from typing import Any
 
 from src.vendors.base import (
@@ -23,13 +24,18 @@ from src.vendors.base import (
     LinkRecord,
     Lsdb,
     LsdbAdapter,
+    NeighborRecord,
     NetworkLsa,
     ParserError,
     RouterLsa,
     link_kind,
+    normalize_state,
+    parse_seq,
 )
 
 logger = logging.getLogger(__name__)
+
+_HEADER_RID = re.compile(r"OSPF Router with ID\s*\(([\d.]+)\)(?:\s*\(Process ID\s*(\S+?)[\s)])?")
 
 LSA_TYPE_ROUTER = 1
 LSA_TYPE_NETWORK = 2
@@ -41,12 +47,16 @@ class GenieCiscoAdapter(LsdbAdapter):
 
     filters_by_process = True
 
-    def __init__(self, module: str, router_cls: str, network_cls: str) -> None:
+    def __init__(
+        self, module: str, router_cls: str, network_cls: str, neighbor: tuple[str, str] | None = None
+    ) -> None:
         """
         Args:
             module: Dotted path of the Genie module, e.g. ``genie.libs.parser.iosxe.show_ospf_database``.
             router_cls: Genie parser class for the router-LSA command.
             network_cls: Genie parser class for the network-LSA command.
+            neighbor: ``(module, class)`` of the Genie neighbour-table parser (``None`` = not supported); it
+                often lives in a different Genie module than the database parsers.
 
         Raises:
             ParserError: If pyATS/Genie is not installed.
@@ -60,6 +70,7 @@ class GenieCiscoAdapter(LsdbAdapter):
             ) from exc
         self._router_parser = getattr(parsers, router_cls)
         self._network_parser = getattr(parsers, network_cls)
+        self._neighbor_parser = getattr(importlib.import_module(neighbor[0]), neighbor[1]) if neighbor else None
         self._empty_exc = SchemaEmptyParserError
 
     # ------------------------------------------------------------------ Genie
@@ -88,7 +99,47 @@ class GenieCiscoAdapter(LsdbAdapter):
         network_data = self._genie(
             self._network_parser, raw_network, "network", allow_empty=True
         )
-        return self.from_genie(router_data, network_data, process_id)
+        lsdb = self.from_genie(router_data, network_data, process_id)
+        lsdb.router_id = self._own_router_id(raw_router, process_id)
+        return lsdb
+
+    @staticmethod
+    def _own_router_id(raw: str, process_id: str | None) -> str | None:
+        """Router ID from the 'OSPF Router with ID (x) (Process ID n)' banner (Genie does not expose it)."""
+        headers = _HEADER_RID.findall(raw or "")
+        for rid, pid in headers:
+            if process_id is None or pid == process_id:
+                return rid
+        return headers[0][0] if headers else None
+
+    def parse_neighbors(self, raw: str, process_id: str | None) -> list[NeighborRecord] | None:
+        if self._neighbor_parser is None:
+            return None
+        if not raw or not raw.strip():
+            return []
+        try:
+            data = self._neighbor_parser(device=None).parse(output=raw)
+        except self._empty_exc:
+            return []
+        except Exception as exc:
+            raise ParserError(f"Genie failed to parse the neighbour table: {exc!r}") from exc
+
+        records: list[NeighborRecord] = []
+        for interface, block in (data.get("interfaces") or {}).items():  # IOS / IOS-XE layout
+            for rid, nbr in (block.get("neighbors") or {}).items():
+                records.append(self._neighbor(rid, nbr, interface))
+        vrfs = data.get("vrfs") or {}  # IOS-XR layout
+        for vrf in ([vrfs["default"]] if "default" in vrfs else list(vrfs.values())):
+            for rid, nbr in (vrf.get("neighbors") or {}).items():
+                records.append(self._neighbor(rid, nbr, nbr.get("interface")))
+        return records
+
+    @staticmethod
+    def _neighbor(router_id: str, nbr: dict, interface: str | None) -> NeighborRecord:
+        state, role = normalize_state(nbr.get("state", ""))
+        return NeighborRecord(router_id=str(router_id), state=state, role=role,
+                              interface=str(interface) if interface else None,
+                              address=str(nbr["address"]) if nbr.get("address") else None)
 
     # ---------------------------------------------------------------- walking
     def from_genie(
@@ -107,6 +158,8 @@ class GenieCiscoAdapter(LsdbAdapter):
                     area=area,
                     mask=body.get("network_mask"),
                     attached=[str(r) for r in (body.get("attached_routers") or {})],
+                    seq=self._seq(lsa),
+                    age=self._age(lsa),
                 )
             )
         return lsdb
@@ -155,10 +208,26 @@ class GenieCiscoAdapter(LsdbAdapter):
         except (TypeError, ValueError):
             return None
 
+    @staticmethod
+    def _header(lsa: dict[str, Any]) -> dict[str, Any]:
+        return (lsa.get("ospfv2") or {}).get("header") or {}
+
+    @classmethod
+    def _age(cls, lsa: dict[str, Any]) -> int | None:
+        try:
+            return int(cls._header(lsa).get("age"))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _seq(lsa: dict[str, Any]) -> int | None:
+        return parse_seq(((lsa.get("ospfv2") or {}).get("header") or {}).get("seq_num"))
+
     def _router_lsa(self, area: str, lsa: dict[str, Any]) -> RouterLsa:
-        router = RouterLsa(
-            router_id=str(lsa.get("adv_router") or lsa.get("lsa_id")), area=area
-        )
+        header = self._header(lsa)
+        router = RouterLsa(router_id=str(lsa.get("adv_router") or lsa.get("lsa_id")), area=area, seq=self._seq(lsa),
+                           age=self._age(lsa), abr=bool(header.get("area_border_router")),
+                           asbr=bool(header.get("as_boundary_router")))
         links = (((lsa.get("ospfv2") or {}).get("body") or {}).get("router") or {}).get(
             "links"
         ) or {}

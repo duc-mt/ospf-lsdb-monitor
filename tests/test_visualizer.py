@@ -287,7 +287,7 @@ def test_segment_attachments_are_not_drawn_as_extra_lines():
 
 def test_title_counts_links_not_directed_edges():
     src = _src(_hub_graph(5))
-    assert "5 routers, 1 transit networks, 5 links" in src
+    assert "5 routers, 1 transit network, 5 links" in src
 
 
 # ------------------------------------------------------------------ cost labels

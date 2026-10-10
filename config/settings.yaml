@@ -63,3 +63,8 @@ visualization:
   # names:                   # optional host names, shown above the router ID
   #   10.255.255.1: core-1
   #   10.255.255.5: edge-1
+
+# Checks on how far the LSDB itself can be trusted.
+data_quality:
+  stale_lsa_age: 2400        # seconds. A live router refreshes its LSA every 30 min (1800 s); one older than
+                             # this is no longer being refreshed, so the router is probably gone. 0 = off.

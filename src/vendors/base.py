@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from src import TrackerError
 
 # Link kinds used by the intermediate model.
+UNKNOWN_AREA = "n/a"
 KIND_P2P = "p2p"
 KIND_TRANSIT = "transit"
 KIND_STUB = "stub"
@@ -55,6 +56,14 @@ class RouterLsa:
     router_id: str
     area: str
     links: list[LinkRecord] = field(default_factory=list)
+    #: LSA sequence number as a signed 32-bit value (larger = newer); ``None`` if the platform omitted it.
+    seq: int | None = None
+    #: Seconds since the LSA was originated. A live router re-originates its LSA every 30 minutes,
+    #: so a very old one means the router is gone.
+    age: int | None = None
+    #: The router's own B (area border router) and E (AS boundary router) bits.
+    abr: bool = False
+    asbr: bool = False
 
 
 @dataclass
@@ -66,6 +75,8 @@ class NetworkLsa:
     area: str
     mask: str | None
     attached: list[str] = field(default_factory=list)
+    seq: int | None = None
+    age: int | None = None
 
 
 @dataclass
@@ -76,6 +87,29 @@ class Lsdb:
     network_lsas: list[NetworkLsa] = field(default_factory=list)
     #: Every OSPF process/instance seen in the output, *before* any filtering.
     process_ids: list[str] = field(default_factory=list)
+    #: Router ID of the router that produced this output (``None`` if the output does not say).
+    router_id: str | None = None
+
+
+@dataclass
+class NeighborRecord:
+    """One row of a router's OSPF neighbour table (its *own* view of its adjacencies)."""
+
+    router_id: str  # the neighbour's router ID
+    state: str  # normalised: Full, 2-Way, Init, ExStart, Exchange, Loading, Down, Attempt (else as printed)
+    role: str | None = None  # DR | BDR | DROther | None (point-to-point, or not printed)
+    interface: str | None = None  # the polled router's own interface towards the neighbour
+    address: str | None = None  # the neighbour's interface address
+    area: str | None = None
+
+
+@dataclass
+class SourceDetail:
+    """What one polled router told us beyond the LSDB."""
+
+    name: str
+    router_id: str | None
+    neighbors: list[NeighborRecord] = field(default_factory=list)
 
 
 class LsdbAdapter(ABC):
@@ -87,6 +121,10 @@ class LsdbAdapter(ABC):
     @abstractmethod
     def parse(self, raw_router: str, raw_network: str, process_id: str | None) -> Lsdb:
         """Parse raw output. ``process_id`` (if given) selects one OSPF process."""
+
+    def parse_neighbors(self, raw: str, process_id: str | None) -> list[NeighborRecord] | None:
+        """Parse the neighbour table; ``None`` means this platform has no neighbour parser."""
+        return None
 
 
 # --------------------------------------------------------------------- helpers
@@ -127,3 +165,39 @@ def as_list(value) -> list:
     if value is None:
         return []
     return value if isinstance(value, list) else [value]
+
+
+_STATES = {
+    "DOWN": "Down", "ATTEMPT": "Attempt", "INIT": "Init", "2WAY": "2-Way", "2WAYS": "2-Way", "TWOWAY": "2-Way",
+    "EXSTART": "ExStart", "EXCHANGE": "Exchange", "LOADING": "Loading", "FULL": "Full",
+}
+_ROLES = {"DR": "DR", "BDR": "BDR", "BACKUP": "BDR", "DROTHER": "DROther", "OTHER": "DROther"}
+
+
+def normalize_state(text: str) -> tuple[str, str | None]:
+    """Split a neighbour state as printed (``FULL/DR``, ``Full/Backup``, ``2-Way/DROther``, ``ExStart``)
+    into ``(state, role)`` using one vocabulary for every platform."""
+    state_part, _, role_part = str(text).strip().partition("/")
+    key = "".join(ch for ch in state_part.upper() if ch.isalnum())
+    state = _STATES.get(key, state_part.strip() or "unknown")
+    role = _ROLES.get("".join(ch for ch in role_part.upper() if ch.isalnum()))
+    return state, role
+
+
+def parse_seq(text) -> int | None:
+    """Parse an LSA sequence number ("80000010", "0x8000000f") into a signed 32-bit int.
+
+    Cisco, Junos, FRR and Huawei all print sequence numbers as hexadecimal without a 0x prefix
+    ("80000010"); Genie prints "0x8000000f". Returns ``None`` if unparseable.
+    """
+    if not text:
+        return None
+    raw = str(text).strip().lower().replace("0x", "")
+    try:
+        val = int(raw, 16)
+        if val >= 0x80000000:
+            val -= 0x100000000
+        return val
+    except ValueError:
+        return None
+

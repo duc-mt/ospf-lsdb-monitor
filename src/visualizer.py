@@ -35,6 +35,7 @@ COLOR_ADDED = "#27AE60"
 COLOR_REMOVED = "#E74C3C"
 COLOR_CHANGED = "#E67E22"
 COLOR_MUTED = "#95A5A6"
+COLOR_WARN = "#8E44AD"  # data the LSDB itself casts doubt on: stale router, one-way link, stuck adjacency
 
 FILL_ROUTER = "#3498DB"
 FILL_NETWORK = "#FFF3C4"
@@ -45,6 +46,25 @@ FILL_REMOVED = "#FDEDEC"
 AUTO_LR_DEGREE = 6
 #: Line thickness range used when drawing cost-weighted lines.
 PEN_MIN, PEN_MAX, PEN_FLAT = 1.0, 2.6, 1.6
+
+#: Display abbreviations for long interface names, longest prefix first (the stored name is never shortened).
+_IF_ABBREVIATIONS = (
+    ("HundredGigE", "Hu"), ("TwentyFiveGigE", "Twe"), ("TenGigabitEthernet", "Te"), ("GigabitEthernet", "Gi"),
+    ("FastEthernet", "Fa"), ("Port-channel", "Po"), ("Loopback", "Lo"), ("Ethernet", "Eth"), ("Vlan", "Vl"),
+)
+
+
+def short_interface(name: str) -> str:
+    """``GigabitEthernet0/0/1`` -> ``Gi0/0/1`` so link labels stay narrow."""
+    for long, short in _IF_ABBREVIATIONS:
+        if name.startswith(long):
+            return short + name[len(long):]
+    return name
+
+
+def _plural(count: int, word: str) -> str:
+    return f"{count} {word}" + ("" if count == 1 else "s")
+
 
 _RANKDIRS = ("auto", "TB", "LR", "BT", "RL")
 _ROUTER_SHAPES = ("box3d", "box", "circle", "ellipse", "oval", "doublecircle")
@@ -206,6 +226,35 @@ class TopologyVisualizer:
                     )
                     drawn.add(end)
             dot.edge(link.a, link.b, **self._edge_attrs(link, scale))
+
+        for issue in graph.graph.get("adjacency_issues") or []:
+            router, neighbour = issue["router"], issue["neighbor"]
+            if router not in drawn:
+                continue
+            if neighbour not in drawn:  # a router that is trying to join but is not in the LSDB (yet)
+                dot.node(
+                    neighbour,
+                    label=f"{neighbour}\\n(not in LSDB)",
+                    style="filled,dashed",
+                    fillcolor=FILL_UNRESOLVED,
+                    color=COLOR_WARN,
+                    fontcolor=COLOR_NORMAL,
+                )
+                drawn.add(neighbour)
+            text = issue["state"] + (
+                f"\\n{short_interface(issue['interface'])}"
+                if issue.get("interface")
+                else ""
+            )
+            dot.edge(
+                router,
+                neighbour,
+                label=text,
+                color=COLOR_WARN,
+                fontcolor=COLOR_WARN,
+                style="dashed",
+                penwidth="1.6",
+            )
         return dot
 
     # ------------------------------------------------------------------- links
@@ -271,9 +320,11 @@ class TopologyVisualizer:
             lines = [f"{side.change['old_metric']}\u2192{side.change['new_metric']}"]
         else:
             lines = [str(side.attrs.get("metric", ""))]
-        address = side.attrs.get("interface_address")
-        if self.options.show_interfaces and address:
-            lines.append(str(address))
+        if self.options.show_interfaces:
+            if side.attrs.get("interface"):
+                lines.append(short_interface(str(side.attrs["interface"])))
+            if side.attrs.get("interface_address"):
+                lines.append(str(side.attrs["interface_address"]))
         return "\\n".join(line for line in lines if line)
 
     def _edge_attrs(self, link: _Link, scale) -> dict[str, str]:
@@ -300,6 +351,16 @@ class TopologyVisualizer:
                 attrs["taillabel"] = text_a
             if text_b:
                 attrs["headlabel"] = text_b
+
+        if any(s.attrs.get("link_state") == "one-way" for s in (link.ab, link.ba) if s):
+            # Only one end advertises it, so OSPF's own calculation ignores this link.
+            for key in ("label", "taillabel", "headlabel"):
+                if key in attrs:
+                    attrs[key] += "\\none-way"
+                    break
+            else:
+                attrs["label"] = "one-way"
+            attrs.update(color=COLOR_WARN, fontcolor=COLOR_WARN, style="dotted")
 
         costs = [
             s.attrs["metric"]
@@ -402,6 +463,11 @@ class TopologyVisualizer:
                 "fillcolor": FILL_ROUTER,
                 "fontcolor": "white",
             }
+            roles = [r for r, on in (("ABR", attrs.get("abr")), ("ASBR", attrs.get("asbr"))) if on]
+            if roles:
+                label += "\\n" + "/".join(roles)
+            if attrs.get("abr"):
+                look["peripheries"] = "2"  # a second outline marks the routers that join areas
         look.update(style="filled", color=COLOR_NORMAL, penwidth="1.2")
 
         if not attrs.get(
@@ -414,6 +480,9 @@ class TopologyVisualizer:
                 style="filled,dashed",
             )
             label += "\\n(no LSA)"
+        if attrs.get("stale"):  # its LSA is no longer being refreshed: the router is probably gone
+            look.update(color=COLOR_WARN, style="filled,dashed", penwidth="2")
+            label += f"\\nstale LSA ({attrs.get('lsa_age', 0) // 60} min)"
         if status == "added":
             look.update(color=COLOR_ADDED, penwidth="3")
         elif status == "removed":
@@ -446,19 +515,33 @@ class TopologyVisualizer:
             1 for link in links if TopologyVisualizer._link_status(link) != "removed"
         )
         lines = [
-            (
-                f"OSPF topology  |  {kinds.count('router')} routers, {kinds.count('network')} transit networks, "
-                f"{live_links} links  |  {stamp}"
-            )
+            f"OSPF topology  |  {_plural(kinds.count('router'), 'router')}, "
+            f"{_plural(kinds.count('network'), 'transit network')}, {_plural(live_links, 'link')}  |  {stamp}"
         ]
+        meta = graph.graph
+        flagged = bool(meta.get("stale_nodes") or meta.get("one_way_links") or meta.get("adjacency_issues"))
+        purple = "   purple = stale / one-way / adjacency problem" if flagged else ""
         if diff.baseline_available:
             lines.append(
-                "green = new   red dashed = removed   orange = metric changed   |   cost shown at each interface"
+                "green = new   red dashed = removed   orange = metric changed" + purple + "   |   cost shown at each interface"
             )
         else:
             lines.append(
-                "first run - no previous state to compare against   |   cost shown at each interface"
+                "first run - no previous state to compare against" + purple + "   |   cost shown at each interface"
             )
+        sources = graph.graph.get("sources") or []
+        if len(sources) > 1:
+            ok = [s["name"] for s in sources if s.get("status") == "ok"]
+            lost = [s["name"] for s in sources if s.get("status") != "ok"]
+            line = f"merged from {_plural(len(ok), 'router')}: {', '.join(ok)}"
+            lines.append(line + (f"   |   NOT POLLED: {', '.join(lost)}" if lost else ""))
+        found = [f"{count} {text}" for count, text in (
+            (len(meta.get("stale_nodes") or []), "stale router(s)"),
+            (meta.get("one_way_links") or 0, "one-way link(s)"),
+            (len(meta.get("adjacency_issues") or []), "adjacency problem(s)"),
+        ) if count]
+        if found:
+            lines.append("DATA QUALITY: " + ", ".join(found))
         parts = (
             nx.number_weakly_connected_components(graph)
             if graph.number_of_nodes()

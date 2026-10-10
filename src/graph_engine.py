@@ -386,6 +386,14 @@ class GraphEngine:
             "removed_edges": len(diff.removed_edges),
             "changed_metrics": len(diff.changed_metrics),
         }
+        for key, count in (("stale_nodes", len(graph.graph.get("stale_nodes") or [])),
+                           ("one_way_links", graph.graph.get("one_way_links") or 0),
+                           ("adjacency_issues", len(graph.graph.get("adjacency_issues") or []))):
+            if key in graph.graph:
+                entry[key] = count
+        sources = graph.graph.get("sources")
+        if sources:
+            entry["sources_ok"] = [s["name"] for s in sources if s.get("status") == "ok"]
         try:
             self.changelog_path.parent.mkdir(parents=True, exist_ok=True)
             with self.changelog_path.open("a", encoding="utf-8") as fh:

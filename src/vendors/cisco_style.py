@@ -19,15 +19,19 @@ import re
 from dataclasses import dataclass, field
 
 from src.vendors.base import (
+    UNKNOWN_AREA,
     KIND_STUB,
     LinkRecord,
     Lsdb,
     LsdbAdapter,
+    NeighborRecord,
     NetworkLsa,
     ParserError,
     RouterLsa,
     dotted_mask,
     link_kind,
+    normalize_state,
+    parse_seq,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,6 +44,12 @@ _AREA = re.compile(
     r"(?:Router|Net(?:work)?)\s+Link\s+States\s*\(Area\s+([\d.]+)\)", re.IGNORECASE
 )
 _LS_START = re.compile(r"^\s*LS\s+age\s*:", re.IGNORECASE)
+_LS_AGE = re.compile(r"^\s*LS\s+age\s*:\s*(?:MAXAGE\()?(\d+)", re.IGNORECASE)
+_ABR_LINE = re.compile(r"^\s*Area\s+Border\s+Router\s*$", re.IGNORECASE)
+_ASBR_LINE = re.compile(r"^\s*AS\s+Boundary\s+Router\s*$", re.IGNORECASE)
+_ROUTER_FLAGS = re.compile(r"^\s*Flags:\s*0x([0-9a-fA-F]+)", re.IGNORECASE)
+_FRR_NEIGHBOR = re.compile(rf"^\s*({_IP})\s+(\d+)\s+(\S+)\s+\S+\s+\S+\s+({_IP})\s+(\S+)\s+\d+\s+\d+\s+\d+\s*$")
+_LS_SEQ = re.compile(r"^\s*LS\s+Seq(?:uence)?\s+Number\s*:\s*(\S+)", re.IGNORECASE)
 _LS_TYPE = re.compile(r"^\s*LS\s+Type\s*:\s*(.+?)\s*$", re.IGNORECASE)
 _LS_ID = re.compile(rf"^\s*Link\s+State\s+ID\s*:\s*({_IP})", re.IGNORECASE)
 _ADV = re.compile(rf"^\s*Advertising\s+Router\s*:\s*({_IP})", re.IGNORECASE)
@@ -64,6 +74,10 @@ class _Lsa:
     lsa_type: str = ""
     lsa_id: str = ""
     adv: str = ""
+    seq: int | None = None
+    age: int | None = None
+    abr: bool = False
+    asbr: bool = False
     mask: str | None = None
     attached: list[str] = field(default_factory=list)
     links: list[LinkRecord] = field(default_factory=list)
@@ -74,14 +88,16 @@ class CiscoStyleTextAdapter(LsdbAdapter):
 
     filters_by_process = True
 
-    def __init__(self, platform: str, metric_hint: str = "") -> None:
+    def __init__(self, platform: str, metric_hint: str = "", neighbor_format: str | None = None) -> None:
         """
         Args:
             platform: Name used in error messages (e.g. ``"Arista EOS"``).
             metric_hint: Extra advice appended when the output has no link metrics.
+            neighbor_format: ``"frr"`` or ``"arista"`` - which neighbour-table layout to parse (``None`` = none).
         """
         self.platform = platform
         self.metric_hint = metric_hint
+        self.neighbor_format = neighbor_format
 
     # ------------------------------------------------------------------ parse
     def parse(self, raw_router: str, raw_network: str, process_id: str | None) -> Lsdb:
@@ -89,6 +105,8 @@ class CiscoStyleTextAdapter(LsdbAdapter):
         router_text, seen = self._scan(raw_router)
         network_text, seen_net = self._scan(raw_network)
         lsdb.process_ids = sorted(set(seen.processes) | set(seen_net.processes))
+        lsdb.router_id = next((rid for rid, proc, vrf in seen.headers
+                               if (vrf in (None, DEFAULT_VRF)) and (process_id is None or proc in (None, process_id))), None)
 
         for lsa in router_text:
             if self._wanted(lsa, process_id) and lsa.lsa_type.lower().startswith(
@@ -96,7 +114,8 @@ class CiscoStyleTextAdapter(LsdbAdapter):
             ):
                 lsdb.router_lsas.append(
                     RouterLsa(
-                        router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links
+                        router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links, seq=lsa.seq,
+                        age=lsa.age, abr=lsa.abr, asbr=lsa.asbr
                     )
                 )
         for lsa in network_text:
@@ -110,6 +129,8 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                         area=lsa.area,
                         mask=dotted_mask(lsa.mask),
                         attached=lsa.attached,
+                        seq=lsa.seq,
+                        age=lsa.age,
                     )
                 )
         self._require_metrics(lsdb)
@@ -129,6 +150,47 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                 f"{self.platform}: router LSAs were found but none has a 'TOS 0 Metric' line, so link "
                 f"costs are unknown. {self.metric_hint}".strip()
             )
+
+    # ------------------------------------------------------------- neighbours
+    def parse_neighbors(self, raw: str, process_id: str | None) -> list[NeighborRecord] | None:
+        if self.neighbor_format == "frr":
+            return self._frr_neighbors(raw)
+        if self.neighbor_format == "arista":
+            return self._arista_neighbors(raw, process_id)
+        return None
+
+    @staticmethod
+    def _frr_neighbors(raw: str) -> list[NeighborRecord]:
+        """FRR/VyOS ``show ip ospf neighbor``: the Interface column is ``ifname:local-address``."""
+        records = []
+        for line in (raw or "").splitlines():
+            m = _FRR_NEIGHBOR.match(line)
+            if not m:
+                continue
+            rid, _pri, state_text, address, interface = m.groups()
+            name, _, local = interface.rpartition(":")
+            if not name or not re.fullmatch(_IP, local):  # no ":address" suffix
+                name = interface
+            state, role = normalize_state(state_text)
+            records.append(NeighborRecord(router_id=rid, state=state, role=role, interface=name, address=address))
+        return records
+
+    @staticmethod
+    def _arista_neighbors(raw: str, process_id: str | None) -> list[NeighborRecord]:
+        """Arista ``show ip ospf neighbor``: ``ID Instance VRF Pri State Dead-Time Address Interface``
+        (the Instance column is absent in some filtered views)."""
+        records = []
+        for line in (raw or "").splitlines():
+            tokens = line.split()
+            if len(tokens) not in (7, 8) or not re.fullmatch(_IP, tokens[0]):
+                continue
+            instance, vrf = (tokens[1], tokens[2]) if len(tokens) == 8 else (None, tokens[1])
+            if vrf != DEFAULT_VRF or (process_id is not None and instance not in (None, process_id)):
+                continue
+            state, role = normalize_state(tokens[-4])
+            records.append(NeighborRecord(router_id=tokens[0], state=state, role=role,
+                                          interface=tokens[-1], address=tokens[-2]))
+        return records
 
     # ---------------------------------------------------------- state machine
     @staticmethod
@@ -159,6 +221,7 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                     (v.group(1) if v else None),
                     UNKNOWN_AREA,
                 )
+                seen.headers.append((header.group(1), process, vrf))
                 if process:
                     seen.processes.add(process)
                 continue
@@ -168,7 +231,8 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                 continue
             if _LS_START.match(line):
                 close()
-                cur = _Lsa(area=area, process=process, vrf=vrf)
+                age = _LS_AGE.match(line)
+                cur = _Lsa(area=area, process=process, vrf=vrf, age=int(age.group(1)) if age else None)
                 continue
             if cur is None:
                 continue
@@ -176,6 +240,15 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                 cur.lsa_type = m.group(1)
             elif m := _LS_ID.match(line):
                 cur.lsa_id = m.group(1)
+            elif m := _LS_SEQ.match(line):
+                cur.seq = parse_seq(m.group(1))
+            elif _ABR_LINE.match(line):
+                cur.abr = True
+            elif _ASBR_LINE.match(line):
+                cur.asbr = True
+            elif m := _ROUTER_FLAGS.match(line):
+                bits = int(m.group(1), 16)  # RFC 2328 A.4.2: B = 0x01 (ABR), E = 0x02 (ASBR)
+                cur.abr, cur.asbr = cur.abr or bool(bits & 0x01), cur.asbr or bool(bits & 0x02)
             elif m := _ADV.match(line):
                 cur.adv = m.group(1)
             elif m := _LINK.match(line):
@@ -201,3 +274,5 @@ class CiscoStyleTextAdapter(LsdbAdapter):
 @dataclass
 class _Seen:
     processes: set[str] = field(default_factory=set)
+    #: ``(router ID, process, vrf)`` of every "OSPF Router with ID" banner, in order.
+    headers: list[tuple[str, str | None, str | None]] = field(default_factory=list)

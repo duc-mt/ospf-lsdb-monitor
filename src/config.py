@@ -83,3 +83,21 @@ def parse_process_id(value: Any) -> str | None:
             f"ospf_process_id {value!r} is invalid: use 1-64 letters, digits, '.', '_' or '-'"
         )
     return text
+
+
+def stale_lsa_age(settings: dict[str, Any], default: int) -> int:
+    """``data_quality.stale_lsa_age`` in seconds (0 switches the stale-LSA check off).
+
+    Raises:
+        ConfigError: If it is not a non-negative integer.
+    """
+    section = settings.get("data_quality") or {}
+    if not isinstance(section, dict):
+        raise ConfigError("'data_quality' in settings.yaml must be a mapping")
+    try:
+        value = int(section.get("stale_lsa_age", default))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"data_quality.stale_lsa_age must be a whole number of seconds ({exc})") from exc
+    if value < 0:
+        raise ConfigError("data_quality.stale_lsa_age must not be negative")
+    return value

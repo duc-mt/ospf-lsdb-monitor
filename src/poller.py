@@ -71,6 +71,7 @@ class RawLSDB:
     network: str  # network-LSA command output
     source: str  # host name/IP (or directory when replaying files)
     collected_at: str  # ISO-8601 UTC timestamp
+    neighbors: str = ""  # neighbour-table output ("" = not collected or not supported on this platform)
 
 
 class BasePoller(ABC):
@@ -94,6 +95,9 @@ class DevicePoller(BasePoller):
         config_path: str | os.PathLike = DEFAULT_CONFIG_PATH,
         device_type: str | None = None,
         settings: dict[str, Any] | None = None,
+        *,
+        device: dict[str, Any] | None = None,
+        collect_neighbors: bool = True,
     ) -> None:
         """Load and validate the settings.
 
@@ -101,6 +105,8 @@ class DevicePoller(BasePoller):
             config_path: Path to the YAML settings file (ignored if ``settings`` is given).
             device_type: Overrides ``device.device_type`` from the file.
             settings: Already-loaded settings, to avoid reading the file twice.
+            device: One already-resolved router entry; skips reading settings.
+            collect_neighbors: Also run the platform's neighbour-table command (best effort).
 
         Raises:
             ConfigError: If the settings are missing, unreadable or incomplete.
@@ -109,10 +115,14 @@ class DevicePoller(BasePoller):
         self.config_path = Path(config_path)
         if settings is None:
             settings = load_settings(self.config_path)
-        if not isinstance(settings.get("device"), dict):
-            raise ConfigError(f"{self.config_path} must contain a 'device' mapping")
 
-        device = dict(settings["device"])
+        if device is None:
+            if not isinstance(settings.get("device"), dict):
+                raise ConfigError(f"{self.config_path} must contain a 'device' mapping")
+            device = dict(settings["device"])
+        else:
+            device = dict(device)
+
         for key, env_name in ENV_OVERRIDES.items():
             if os.environ.get(env_name):
                 device[key] = os.environ[env_name]
@@ -134,9 +144,10 @@ class DevicePoller(BasePoller):
                 f"{self.config_path}: numeric device settings must be integers ({exc!r})"
             ) from exc
 
+        self.name = str(device.get("name") or device["host"])
         self.host = str(device["host"])
         self.device_type = str(device_type or device.get("device_type", "cisco_ios"))
-        self.process_id = parse_process_id(settings.get("ospf_process_id"))
+        self.process_id = parse_process_id(device.get("ospf_process_id") or settings.get("ospf_process_id"))
         self.profile: VendorProfile = get_profile(self.device_type)
         self._username = str(device["username"])
         self._password = str(device["password"])
@@ -151,6 +162,23 @@ class DevicePoller(BasePoller):
             which: self.profile.command(which, self.process_id, overrides.get(which))
             for which in ("router", "network")
         }
+        if collect_neighbors and (self.profile.neighbors is not None or overrides.get("neighbors")):
+            self.commands["neighbors"] = self.profile.command("neighbors", self.process_id, overrides.get("neighbors"))
+
+    @classmethod
+    def from_settings(
+        cls,
+        config_path: str | os.PathLike = DEFAULT_CONFIG_PATH,
+        device_type: str | None = None,
+        settings: dict[str, Any] | None = None,
+    ) -> list["DevicePoller"]:
+        """Build one poller per router in the settings (``device:`` and/or ``devices:``)."""
+        if settings is None:
+            settings = load_settings(config_path)
+        entries = device_entries(settings, str(config_path))
+        neighbors = PollingOptions.from_settings(settings.get("polling")).neighbors
+        return [cls(config_path, device_type=device_type, settings=settings, device=entry, collect_neighbors=neighbors)
+                for entry in entries]
 
     def _connection_params(self) -> dict[str, Any]:
         return {
@@ -181,6 +209,14 @@ class DevicePoller(BasePoller):
                 router = self._run(conn, "router")
                 # No Type 2 LSAs is legitimate (e.g. only point-to-point links).
                 network = self._run(conn, "network", allow_empty=True)
+                neighbors = ""
+                if "neighbors" in self.commands:
+                    # Extra detail only: never let it cost us the LSDB we already have.
+                    try:
+                        neighbors = self._run(conn, "neighbors", allow_empty=True)
+                    except (PollerError, NetmikoBaseException, ReadTimeout, SSHException, OSError) as exc:
+                        logger.warning("%s: could not read the neighbour table (%s); continuing without it",
+                                       self.host, _first_line(exc))
         except NetmikoAuthenticationException as exc:
             raise PollerError(
                 f"Authentication failed for {self.host}: check username, password and enable secret"
@@ -206,6 +242,7 @@ class DevicePoller(BasePoller):
             network=network,
             source=self.host,
             collected_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            neighbors=neighbors,
         )
 
     def _run(self, conn: Any, key: str, allow_empty: bool = False) -> str:
@@ -232,6 +269,7 @@ class FilePoller(BasePoller):
 
     ROUTER_FILE = "router_lsdb.txt"
     NETWORK_FILE = "network_lsdb.txt"
+    NEIGHBORS_FILE = "neighbors.txt"
 
     def __init__(
         self,
@@ -260,7 +298,7 @@ class FilePoller(BasePoller):
                 raise PollerError(f"Could not read replay file {path}: {exc}") from exc
 
     def poll(self) -> RawLSDB:
-        """Read ``router_lsdb.txt`` (required) and ``network_lsdb.txt`` (optional)."""
+        """Read ``router_lsdb.txt`` (required); ``network_lsdb.txt`` and ``neighbors.txt`` are optional."""
         router_path = self.directory / self.ROUTER_FILE
         network_path = self.directory / self.NETWORK_FILE
 
@@ -268,10 +306,40 @@ class FilePoller(BasePoller):
         if not router:
             raise PollerError(f"Required file missing or empty: {router_path}")
         network = self._read_with_timeout(network_path)
+        neighbors = self._read_with_timeout(self.directory / self.NEIGHBORS_FILE)
 
         return RawLSDB(
             router=router,
             network=network,
             source=str(self.directory),
             collected_at=datetime.now(UTC).isoformat(timespec="seconds"),
+            neighbors=neighbors,
         )
+
+
+@dataclass
+class PollingOptions:
+    """Settings for multi-router polling."""
+
+    concurrency: int = 4  # routers polled at the same time
+    require_all: bool = False  # abort the run if ANY router fails (default: carry on with the rest)
+    neighbors: bool = True  # also read each router's neighbour table (adjacency state, interface names)
+
+    @classmethod
+    def from_settings(cls, section: dict[str, Any] | None) -> "PollingOptions":
+        """Read the ``polling:`` mapping from settings.yaml."""
+        if section is None:
+            return cls()
+        if not isinstance(section, dict):
+            raise ConfigError("'polling' in settings.yaml must be a mapping")
+        try:
+            options = cls(
+                concurrency=int(section.get("concurrency", 4)),
+                require_all=bool(section.get("require_all", False)),
+                neighbors=bool(section.get("neighbors", True)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(f"polling.concurrency must be an integer ({exc})") from exc
+        if options.concurrency < 1:
+            raise ConfigError("polling.concurrency must be 1 or greater")
+        return options

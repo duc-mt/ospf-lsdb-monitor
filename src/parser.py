@@ -17,6 +17,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,12 +30,17 @@ from src.vendors.base import (
     KIND_VIRTUAL,
     Lsdb,
     ParserError,
+    SourceDetail,
     dotted_mask,
 )
 
 __all__ = ["BaseParser", "OSPFParser", "ParserError"]
 
 logger = logging.getLogger(__name__)
+
+#: Seconds after which an LSA counts as stale. A live router re-originates its LSAs every 30 minutes
+#: (LSRefreshTime = 1800 s); the margin covers pacing delays such as Cisco's 240 s LSA-group pacing.
+DEFAULT_STALE_AGE = 2400
 
 _EDGE_TYPE = {
     KIND_P2P: "point-to-point",
@@ -78,6 +84,10 @@ class OSPFParser(BaseParser):
             )
 
     # ------------------------------------------------------------------- parse
+    def parse_neighbors(self, raw_neighbors: str):
+        """Parse a neighbour table; ``None`` if this platform has no neighbour parser."""
+        return self.adapter.parse_neighbors(raw_neighbors, self.process_id)
+
     def parse(self, raw_router: str, raw_network: str = "") -> dict[str, Any]:
         """Parse raw LSDB text into the standardized topology dictionary.
 
@@ -90,24 +100,53 @@ class OSPFParser(BaseParser):
             if self.process_id is not None:
                 hint = f" for OSPF process {self.process_id} (process IDs in output: {lsdb.process_ids or 'none'})"
             raise ParserError(f"No router (Type 1) LSAs found{hint}")
-        return self._build(lsdb)
+        return self.build_topology(lsdb, {"device_type": self.device_type})
 
-    def _build(self, lsdb: Lsdb) -> dict[str, Any]:
-        """Flatten the neutral LSA model into nodes and edges."""
+    @classmethod
+    def build_topology(
+        cls,
+        lsdb: Lsdb,
+        metadata: dict[str, Any] | None = None,
+        details: Sequence[SourceDetail] | None = None,
+        stale_age: int = DEFAULT_STALE_AGE,
+    ) -> dict[str, Any]:
+        """Flatten a (possibly merged) neutral LSA model into nodes and edges.
+
+        Besides the topology itself this records how far the data can be trusted:
+
+        * ``lsa_age`` / ``stale`` on nodes whose LSA has not been refreshed for ``stale_age`` seconds
+        * ``abr`` / ``asbr`` on routers that say they are area border / AS boundary routers
+        * ``link_state`` (``one-way`` / ``unverified``) on links the far end does not advertise back
+        * ``interface`` on links, and ``adjacency_issues`` in the metadata, from neighbour tables
+
+        Args:
+            lsdb: The model to flatten.
+            metadata: Extra entries for the result's ``metadata`` block (device type, sources, ...).
+            details: Per-router neighbour tables (see ``SourceDetail``).
+            stale_age: Age in seconds from which an LSA counts as stale (0 switches the check off).
+        """
         nodes: dict[str, dict] = {}
         edges: dict[tuple[str, str], dict] = {}
+        described: set[tuple[str, str]] = set()  # (node ID, area) pairs that have an LSA of their own
 
         # Type 1: routers and the links they advertise.
         for lsa in lsdb.router_lsas:
-            self._upsert_node(nodes, lsa.router_id, "router", lsa.area, resolved=True)
+            cls._upsert_node(nodes, lsa.router_id, "router", lsa.area, resolved=True)
+            node = nodes[lsa.router_id]
+            described.add((lsa.router_id, lsa.area))
+            if lsa.abr:
+                node["abr"] = True
+            if lsa.asbr:
+                node["asbr"] = True
+            cls._note_age(node, lsa.age)
             for link in lsa.links:
-                self._add_router_link(nodes, edges, lsa.router_id, link, lsa.area)
+                cls._add_router_link(nodes, edges, lsa.router_id, link, lsa.area)
 
         # Type 2: transit networks (the DR originates one per segment).
         for lsa in lsdb.network_lsas:
             mask = dotted_mask(lsa.mask)
             net_id = network_node_id(lsa.address)
-            self._upsert_node(
+            cls._upsert_node(
                 nodes,
                 net_id,
                 "network",
@@ -116,11 +155,13 @@ class OSPFParser(BaseParser):
                 address=lsa.address,
                 dr=lsa.dr,
                 mask=mask,
-                prefix=self._prefix(lsa.address, mask),
+                prefix=cls._prefix(lsa.address, mask),
             )
+            described.add((net_id, lsa.area))
+            cls._note_age(nodes[net_id], lsa.age)
             for attached in lsa.attached:
-                self._upsert_node(nodes, attached, "router", lsa.area)
-                self._add_edge(edges, net_id, attached, 0, "attachment", lsa.area)
+                cls._upsert_node(nodes, attached, "router", lsa.area)
+                cls._add_edge(edges, net_id, attached, 0, "attachment", lsa.area)
 
         unresolved = sorted(n["id"] for n in nodes.values() if not n["resolved"])
         if unresolved:
@@ -130,17 +171,33 @@ class OSPFParser(BaseParser):
                 ", ".join(unresolved),
             )
 
+        stale: list[str] = []
+        if stale_age:
+            for node in nodes.values():
+                if node.get("lsa_age") is not None and node["lsa_age"] >= stale_age:
+                    node["stale"] = True
+                    stale.append(node["id"])
+        one_way, unverified = cls._check_two_way(nodes, edges, described)
+        issues = cls._apply_details(nodes, edges, list(details or []))
+
         for node in nodes.values():
             node["areas"] = sorted(node["areas"])
+        meta = {
+            "device_type": cls.__name__,
+            "ospf_process_ids": lsdb.process_ids,
+            "areas": sorted({a for n in nodes.values() for a in n["areas"]}),
+            "router_lsas": len(lsdb.router_lsas),
+            "network_lsas": len(lsdb.network_lsas),
+            "parsed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "stale_lsa_age": stale_age,
+            "stale_nodes": sorted(stale, key=node_sort_key),
+            "one_way_links": one_way,
+            "unverified_links": unverified,
+            "adjacency_issues": issues,
+        }
+        meta.update(metadata or {})
         return {
-            "metadata": {
-                "device_type": self.device_type,
-                "ospf_process_ids": lsdb.process_ids,
-                "areas": sorted({a for n in nodes.values() for a in n["areas"]}),
-                "router_lsas": len(lsdb.router_lsas),
-                "network_lsas": len(lsdb.network_lsas),
-                "parsed_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            },
+            "metadata": meta,
             "nodes": [nodes[k] for k in sorted(nodes, key=node_sort_key)],
             "edges": [
                 edges[k]
@@ -150,7 +207,72 @@ class OSPFParser(BaseParser):
             ],
         }
 
-    def _add_router_link(self, nodes, edges, router_id: str, link, area: str) -> None:
+    def _build(self, lsdb: Lsdb) -> dict[str, Any]:
+        """Flatten the neutral LSA model into nodes and edges (backward compatibility)."""
+        return self.build_topology(lsdb, {"device_type": self.device_type})
+
+    @staticmethod
+    def _note_age(node: dict, age: int | None) -> None:
+        """Keep the youngest LSA age of a node (a router in several areas has several LSAs)."""
+        if age is not None:
+            node["lsa_age"] = age if "lsa_age" not in node else min(node["lsa_age"], age)
+
+    @staticmethod
+    def _check_two_way(nodes: dict, edges: dict, described: set[tuple[str, str]]) -> tuple[int, int]:
+        """Mark links the far end does not advertise back (OSPF's SPF ignores such links).
+
+        A missing reverse link is only evidence of a problem if the far end *has* an LSA in the same
+        area; otherwise (area not polled, router not seen) the link is merely ``unverified``.
+        Returns ``(one-way link count, unverified link count)``.
+        """
+        one_way: set[frozenset] = set()
+        unverified: set[frozenset] = set()
+        for (source, target), edge in edges.items():
+            if (target, source) in edges:
+                continue
+            if (target, edge["area"]) in described:
+                edge["link_state"] = "one-way"
+                one_way.add(frozenset((source, target)))
+            else:
+                edge["link_state"] = "unverified"
+                unverified.add(frozenset((source, target)))
+        return len(one_way), len(unverified)
+
+    @staticmethod
+    def _is_adjacency_problem(neighbor) -> bool:
+        """Anything short of Full is a problem, except 2-Way between two DROthers (that is normal)."""
+        return neighbor.state != "Full" and not (neighbor.state == "2-Way" and neighbor.role == "DROther")
+
+    @classmethod
+    def _apply_details(cls, nodes: dict, edges: dict, details: list[SourceDetail]) -> list[dict]:
+        """Use each router's own neighbour table: name the interface of every link, list unhealthy adjacencies."""
+        issues: list[dict] = []
+        for detail in details:
+            router = detail.router_id
+            if not router or router not in nodes:
+                if detail.neighbors:
+                    logger.warning("%s: cannot tell which node in the topology this router is (router ID %s); "
+                                   "its neighbour table is ignored", detail.name, router or "unknown")
+                continue
+            segments = [b for (a, b) in edges if a == router and nodes[b]["type"] == "network"]
+            for nbr in detail.neighbors:
+                if nbr.interface:
+                    if (router, nbr.router_id) in edges and nodes[nbr.router_id]["type"] == "router":
+                        link = (router, nbr.router_id)  # point-to-point
+                    else:  # a shared segment: the router's link to a network that the neighbour is attached to
+                        link = next(((router, seg) for seg in segments if (seg, nbr.router_id) in edges), None)
+                    if link is not None:
+                        edges[link].setdefault("interface", nbr.interface)
+                if cls._is_adjacency_problem(nbr):
+                    issues.append({
+                        "router": router, "neighbor": nbr.router_id, "state": nbr.state, "role": nbr.role,
+                        "interface": nbr.interface, "address": nbr.address, "source": detail.name,
+                        "in_lsdb": nbr.router_id in nodes and nodes[nbr.router_id]["resolved"],
+                    })
+        return issues
+
+    @classmethod
+    def _add_router_link(cls, nodes, edges, router_id: str, link, area: str) -> None:
         """Translate one Type 1 link into a node (if needed) and a directed edge."""
         if link.kind == KIND_STUB or link.kind not in _EDGE_TYPE:
             return
@@ -165,12 +287,12 @@ class OSPFParser(BaseParser):
         if link.kind == KIND_TRANSIT:
             # link_id is the DR's interface address -> the network node.
             target = network_node_id(link.link_id)
-            self._upsert_node(nodes, target, "network", area, address=link.link_id)
+            cls._upsert_node(nodes, target, "network", area, address=link.link_id)
         else:
             # link_id is the neighbor's router ID.
             target = link.link_id
-            self._upsert_node(nodes, target, "router", area)
-        self._add_edge(
+            cls._upsert_node(nodes, target, "router", area)
+        cls._add_edge(
             edges,
             router_id,
             target,

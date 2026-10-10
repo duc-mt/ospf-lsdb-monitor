@@ -23,17 +23,35 @@ from src.vendors.base import (
     LinkRecord,
     Lsdb,
     LsdbAdapter,
+    NeighborRecord,
     NetworkLsa,
     ParserError,
     RouterLsa,
     as_list,
     dotted_mask,
     link_kind,
+    normalize_state,
+    parse_seq,
 )
 
 logger = logging.getLogger(__name__)
 
 _AREA_BLOCK = re.compile(r"(?m)^(?=[ \t]*OSPF database, Area )")
+
+
+def _int(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _bits(lsa: dict) -> int:
+    """Router-LSA flag bits (B = 0x01 ABR, E = 0x02 ASBR) as Junos prints them: 'bits 0x2'."""
+    try:
+        return int(str((lsa.get("ospf-router-lsa") or {}).get("bits", "0")), 16)
+    except ValueError:
+        return 0
 
 
 def _clean(value: str | None) -> str:
@@ -55,6 +73,7 @@ class GenieJunosAdapter(LsdbAdapter):
                 "Cisco pyATS/Genie is not installed. Run: pip install 'pyats[library]'"
             ) from exc
         self._parser = module.ShowOspfDatabaseExtensive
+        self._neighbor_parser = module.ShowOspfNeighbor
         self._empty_exc = SchemaEmptyParserError
 
     def parse(self, raw_router: str, raw_network: str, process_id: str | None) -> Lsdb:
@@ -67,6 +86,8 @@ class GenieJunosAdapter(LsdbAdapter):
             lsdb.router_lsas.extend(
                 self._router_lsa(area, d) for d in lsas if d.get("lsa-type") == "Router"
             )
+            if lsdb.router_id is None:  # Junos marks the router's own LSAs ("*" / our-entry)
+                lsdb.router_id = next((_clean(d.get("advertising-router")) for d in lsas if d.get("our-entry")), None)
         for area, lsas in self._lsas_by_area(raw_network, "network", required=False):
             lsdb.network_lsas.extend(
                 self._network_lsa(area, d)
@@ -102,9 +123,35 @@ class GenieJunosAdapter(LsdbAdapter):
             result.append((area, as_list(info.get("ospf-database"))))
         return result
 
+    def parse_neighbors(self, raw: str, process_id: str | None) -> list[NeighborRecord]:
+        if not raw or not raw.strip():
+            return []
+        try:
+            info = self._neighbor_parser(device=None).parse(output=raw)["ospf-neighbor-information"]
+        except self._empty_exc:
+            return []
+        except Exception as exc:
+            raise ParserError(f"Genie failed to parse the Junos neighbour table: {exc!r}") from exc
+        records = []
+        for nbr in as_list(info.get("ospf-neighbor")):
+            state, role = normalize_state(nbr.get("ospf-neighbor-state", ""))
+            records.append(NeighborRecord(
+                router_id=_clean(nbr.get("neighbor-id")), state=state, role=role,
+                interface=nbr.get("interface-name"), address=nbr.get("neighbor-address"),
+            ))
+        return records
+
     # ---------------------------------------------------------------- mapping
     def _router_lsa(self, area: str, lsa: dict) -> RouterLsa:
-        router = RouterLsa(router_id=_clean(lsa.get("advertising-router")), area=area)
+        bits = _bits(lsa)
+        router = RouterLsa(
+            router_id=_clean(lsa.get("advertising-router")),
+            area=area,
+            seq=parse_seq(lsa.get("sequence-number")),
+            age=_int(lsa.get("age")),
+            abr=bool(bits & 0x01),
+            asbr=bool(bits & 0x02),
+        )
         for link in as_list((lsa.get("ospf-router-lsa") or {}).get("ospf-link")):
             kind = link_kind(str(link.get("link-type-name", "")))
             if kind is None:
@@ -134,4 +181,6 @@ class GenieJunosAdapter(LsdbAdapter):
             area=area,
             mask=dotted_mask(body.get("address-mask")),
             attached=[_clean(r) for r in as_list(body.get("attached-router"))],
+            seq=parse_seq(lsa.get("sequence-number")),
+            age=_int(lsa.get("age")),
         )
