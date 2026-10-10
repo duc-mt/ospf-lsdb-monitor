@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Unit tests for TopologyVisualizer.
 
 These tests verify that ``build_digraph()`` produces correct Graphviz DOT
@@ -36,9 +37,15 @@ def _graph() -> nx.DiGraph:
         mask="255.255.255.0",
         prefix="192.168.1.0/24",
     )
-    g.add_edge("10.0.0.1", "10.0.0.2", metric=10, link_type="point-to-point", area="0.0.0.0")
-    g.add_edge("10.0.0.1", "net-192.168.1.1", metric=1, link_type="transit", area="0.0.0.0")
-    g.add_edge("net-192.168.1.1", "10.0.0.1", metric=0, link_type="attachment", area="0.0.0.0")
+    g.add_edge(
+        "10.0.0.1", "10.0.0.2", metric=10, link_type="point-to-point", area="0.0.0.0"
+    )
+    g.add_edge(
+        "10.0.0.1", "net-192.168.1.1", metric=1, link_type="transit", area="0.0.0.0"
+    )
+    g.add_edge(
+        "net-192.168.1.1", "10.0.0.1", metric=0, link_type="attachment", area="0.0.0.0"
+    )
     return g
 
 
@@ -76,11 +83,17 @@ def test_added_node_uses_green():
 def test_added_edge_uses_green():
     diff = TopologyDiff(
         baseline_available=True,
-        added_edges=[{
-            "source": "10.0.0.1", "target": "10.0.0.2",
-            "source_label": "10.0.0.1", "target_label": "10.0.0.2",
-            "metric": 10, "link_type": "point-to-point", "area": "0.0.0.0",
-        }],
+        added_edges=[
+            {
+                "source": "10.0.0.1",
+                "target": "10.0.0.2",
+                "source_label": "10.0.0.1",
+                "target_label": "10.0.0.2",
+                "metric": 10,
+                "link_type": "point-to-point",
+                "area": "0.0.0.0",
+            }
+        ],
     )
     src = _viz().build_digraph(_graph(), diff).source
     assert COLOR_ADDED in src
@@ -99,11 +112,17 @@ def test_removed_node_uses_red():
 def test_removed_edge_uses_red():
     diff = TopologyDiff(
         baseline_available=True,
-        removed_edges=[{
-            "source": "10.0.0.1", "target": "10.0.0.99",
-            "source_label": "10.0.0.1", "target_label": "10.0.0.99",
-            "metric": 10, "link_type": "point-to-point", "area": "0.0.0.0",
-        }],
+        removed_edges=[
+            {
+                "source": "10.0.0.1",
+                "target": "10.0.0.99",
+                "source_label": "10.0.0.1",
+                "target_label": "10.0.0.99",
+                "metric": 10,
+                "link_type": "point-to-point",
+                "area": "0.0.0.0",
+            }
+        ],
     )
     src = _viz().build_digraph(_graph(), diff).source
     assert COLOR_REMOVED in src
@@ -113,12 +132,18 @@ def test_removed_edge_uses_red():
 def test_changed_metric_uses_orange_and_shows_arrow():
     diff = TopologyDiff(
         baseline_available=True,
-        changed_metrics=[{
-            "source": "10.0.0.1", "target": "10.0.0.2",
-            "source_label": "10.0.0.1", "target_label": "10.0.0.2",
-            "old_metric": 10, "new_metric": 100,
-            "link_type": "point-to-point", "area": "0.0.0.0",
-        }],
+        changed_metrics=[
+            {
+                "source": "10.0.0.1",
+                "target": "10.0.0.2",
+                "source_label": "10.0.0.1",
+                "target_label": "10.0.0.2",
+                "old_metric": 10,
+                "new_metric": 100,
+                "link_type": "point-to-point",
+                "area": "0.0.0.0",
+            }
+        ],
     )
     src = _viz().build_digraph(_graph(), diff).source
     assert COLOR_CHANGED in src
@@ -169,9 +194,17 @@ def test_attachment_edges_have_no_metric_label():
     """Attachment (network→router) edges are always metric 0 and should be unlabelled."""
     g = nx.DiGraph()
     g.add_node("10.0.0.1", type="router", resolved=True, areas=["0.0.0.0"])
-    g.add_node("net-1.1.1.1", type="network", resolved=True, areas=["0.0.0.0"],
-               address="1.1.1.1", dr="10.0.0.1")
-    g.add_edge("net-1.1.1.1", "10.0.0.1", metric=0, link_type="attachment", area="0.0.0.0")
+    g.add_node(
+        "net-1.1.1.1",
+        type="network",
+        resolved=True,
+        areas=["0.0.0.0"],
+        address="1.1.1.1",
+        dr="10.0.0.1",
+    )
+    g.add_edge(
+        "net-1.1.1.1", "10.0.0.1", metric=0, link_type="attachment", area="0.0.0.0"
+    )
     src = _viz().build_digraph(g, TopologyDiff()).source
     # The empty label means "0" must not appear as an edge label (it could appear in node IDs).
     # We check there is no label="0" attribute on the edge.
@@ -190,26 +223,49 @@ def _p2p_graph(fwd: int, back: int, addr: bool = False) -> nx.DiGraph:
     g = nx.DiGraph()
     for r in ("10.0.0.1", "10.0.0.2"):
         g.add_node(r, type="router", resolved=True, areas=["0.0.0.0"])
-    for (u, v, cost, ip) in (("10.0.0.1", "10.0.0.2", fwd, "10.12.0.1"), ("10.0.0.2", "10.0.0.1", back, "10.12.0.2")):
+    for u, v, cost, ip in (
+        ("10.0.0.1", "10.0.0.2", fwd, "10.12.0.1"),
+        ("10.0.0.2", "10.0.0.1", back, "10.12.0.2"),
+    ):
         extra = {"interface_address": ip} if addr else {}
-        g.add_edge(u, v, metric=cost, link_type="point-to-point", area="0.0.0.0", **extra)
+        g.add_edge(
+            u, v, metric=cost, link_type="point-to-point", area="0.0.0.0", **extra
+        )
     return g
 
 
 def _hub_graph(spokes: int) -> nx.DiGraph:
     """One transit network with ``spokes`` routers attached (each with a cost and an attachment edge)."""
     g = nx.DiGraph()
-    g.add_node("net-10.1.1.1", type="network", resolved=True, areas=["0.0.0.0"], dr="10.0.0.1", prefix="10.1.1.0/24")
+    g.add_node(
+        "net-10.1.1.1",
+        type="network",
+        resolved=True,
+        areas=["0.0.0.0"],
+        dr="10.0.0.1",
+        prefix="10.1.1.0/24",
+    )
     for i in range(1, spokes + 1):
         r = f"10.0.0.{i}"
         g.add_node(r, type="router", resolved=True, areas=["0.0.0.0"])
-        g.add_edge(r, "net-10.1.1.1", metric=1, link_type="transit", area="0.0.0.0", interface_address=f"10.1.1.{i}")
+        g.add_edge(
+            r,
+            "net-10.1.1.1",
+            metric=1,
+            link_type="transit",
+            area="0.0.0.0",
+            interface_address=f"10.1.1.{i}",
+        )
         g.add_edge("net-10.1.1.1", r, metric=0, link_type="attachment", area="0.0.0.0")
     return g
 
 
 def _src(graph, diff=None, **opts) -> str:
-    return _viz(options=VisualOptions(**opts)).build_digraph(graph, diff or TopologyDiff()).source
+    return (
+        _viz(options=VisualOptions(**opts))
+        .build_digraph(graph, diff or TopologyDiff())
+        .source
+    )
 
 
 # ------------------------------------------------------------ one line per link
@@ -231,7 +287,7 @@ def test_title_counts_links_not_directed_edges():
 # ------------------------------------------------------------------ cost labels
 def test_symmetric_p2p_gets_a_single_centred_label():
     src = _src(_p2p_graph(10, 10), show_interfaces=False)
-    assert 'label=10' in src and "taillabel" not in src and "headlabel" not in src
+    assert "label=10" in src and "taillabel" not in src and "headlabel" not in src
 
 
 def test_asymmetric_p2p_labels_each_end_with_its_own_cost():
@@ -250,18 +306,29 @@ def test_segment_link_shows_cost_and_interface_address_in_the_middle():
 
 def test_interface_addresses_can_be_switched_off():
     src = _src(_hub_graph(3), show_interfaces=False)
-    assert "10.1.1.3" not in src.replace('"net-10.1.1.1"', "")  # address would only appear via a label
+    assert "10.1.1.3" not in src.replace(
+        '"net-10.1.1.1"', ""
+    )  # address would only appear via a label
 
 
 # --------------------------------------------------------------- diff on merged lines
 def test_removed_link_is_one_dashed_red_line_even_though_two_directions_were_removed():
-    record = lambda s, t: {"source": s, "target": t, "source_label": s, "target_label": t,  # noqa: E731
-                           "metric": 10, "link_type": "point-to-point", "area": "0.0.0.0"}
+    record = lambda s, t: {
+        "source": s,
+        "target": t,
+        "source_label": s,
+        "target_label": t,  # noqa: E731
+        "metric": 10,
+        "link_type": "point-to-point",
+        "area": "0.0.0.0",
+    }
     g = nx.DiGraph()
     g.add_node("10.0.0.1", type="router", resolved=True, areas=["0.0.0.0"])
     diff = TopologyDiff(
         baseline_available=True,
-        removed_nodes=[{"id": "10.0.0.2", "type": "router", "resolved": True, "areas": ["0.0.0.0"]}],
+        removed_nodes=[
+            {"id": "10.0.0.2", "type": "router", "resolved": True, "areas": ["0.0.0.0"]}
+        ],
         removed_edges=[record("10.0.0.1", "10.0.0.2"), record("10.0.0.2", "10.0.0.1")],
     )
     src = _src(g, diff)
@@ -272,11 +339,24 @@ def test_removed_link_is_one_dashed_red_line_even_though_two_directions_were_rem
 
 def test_metric_change_in_one_direction_marks_the_whole_line_orange():
     g = _p2p_graph(100, 10, addr=False)
-    change = {"source": "10.0.0.1", "target": "10.0.0.2", "old_metric": 10, "new_metric": 100,
-              "link_type": "point-to-point"}
-    src = _src(g, TopologyDiff(baseline_available=True, changed_metrics=[change]), show_interfaces=False)
+    change = {
+        "source": "10.0.0.1",
+        "target": "10.0.0.2",
+        "old_metric": 10,
+        "new_metric": 100,
+        "link_type": "point-to-point",
+    }
+    src = _src(
+        g,
+        TopologyDiff(baseline_available=True, changed_metrics=[change]),
+        show_interfaces=False,
+    )
     edge_line = next(l for l in src.splitlines() if "--" in l)
-    assert COLOR_CHANGED in edge_line and "10\u2192100" in edge_line and "headlabel=10" in edge_line
+    assert (
+        COLOR_CHANGED in edge_line
+        and "10\u2192100" in edge_line
+        and "headlabel=10" in edge_line
+    )
 
 
 # --------------------------------------------------------------------- layout
@@ -292,14 +372,21 @@ def test_explicit_rankdir_overrides_auto():
 
 def test_split_topology_is_called_out_in_the_title():
     g = _p2p_graph(10, 10)
-    g.add_node("10.9.9.9", type="router", resolved=True, areas=["0.0.0.0"])  # nothing connects to it
+    g.add_node(
+        "10.9.9.9", type="router", resolved=True, areas=["0.0.0.0"]
+    )  # nothing connects to it
     assert "split into 2 disconnected parts" in _src(g)
     assert "disconnected" not in _src(_p2p_graph(10, 10))
 
 
 # ----------------------------------------------------------- cost-weighted lines
 def _penwidths(src: str) -> list[float]:
-    return [float(m) for m in re.findall(r"penwidth=([\d.]+)", " ".join(l for l in src.splitlines() if "--" in l))]
+    return [
+        float(m)
+        for m in re.findall(
+            r"penwidth=([\d.]+)", " ".join(l for l in src.splitlines() if "--" in l)
+        )
+    ]
 
 
 def test_cheaper_links_are_drawn_thicker():
@@ -320,7 +407,9 @@ def test_cost_weighting_can_be_switched_off():
 def _two_area_graph() -> nx.DiGraph:
     g = nx.DiGraph()
     g.add_node("10.0.0.1", type="router", resolved=True, areas=["0.0.0.0"])
-    g.add_node("10.0.0.2", type="router", resolved=True, areas=["0.0.0.0", "0.0.0.1"])  # ABR
+    g.add_node(
+        "10.0.0.2", type="router", resolved=True, areas=["0.0.0.0", "0.0.0.1"]
+    )  # ABR
     g.add_node("10.0.1.1", type="router", resolved=True, areas=["0.0.0.1"])
     for u, v in (("10.0.0.1", "10.0.0.2"), ("10.0.0.2", "10.0.1.1")):
         g.add_edge(u, v, metric=1, link_type="point-to-point", area="0.0.0.0")
@@ -330,14 +419,20 @@ def _two_area_graph() -> nx.DiGraph:
 
 def test_each_area_is_a_dashed_cluster_when_there_are_several():
     src = _src(_two_area_graph())
-    assert "cluster_area_0_0_0_0" in src and "cluster_area_0_0_0_1" in src and 'label="Area 0.0.0.1"' in src
+    assert (
+        "cluster_area_0_0_0_0" in src
+        and "cluster_area_0_0_0_1" in src
+        and 'label="Area 0.0.0.1"' in src
+    )
 
 
 def test_abr_stays_outside_every_cluster():
     src = _src(_two_area_graph())
     abr = re.search(r'^(\t+)"?10\.0\.0\.2"? \[', src, re.M)
     member = re.search(r'^(\t+)"?10\.0\.1\.1"? \[', src, re.M)
-    assert abr.group(1) == "\t" and member.group(1) == "\t\t"  # indentation depth = inside a subgraph or not
+    assert (
+        abr.group(1) == "\t" and member.group(1) == "\t\t"
+    )  # indentation depth = inside a subgraph or not
 
 
 def test_single_area_needs_no_cluster():
@@ -362,16 +457,21 @@ def test_routers_default_to_3d_boxes_and_networks_to_diamonds():
 def test_unresolved_node_is_dashed_not_a_diff_colour():
     g = nx.DiGraph()
     g.add_node("10.0.0.1", type="router", resolved=False, areas=["0.0.0.0"])
-    node_line = next(l for l in _src(g).splitlines() if '"10.0.0.1"' in l or "10.0.0.1 [" in l)
+    node_line = next(
+        l for l in _src(g).splitlines() if '"10.0.0.1"' in l or "10.0.0.1 [" in l
+    )
     assert "dashed" in node_line and COLOR_REMOVED not in node_line
 
 
-@pytest.mark.parametrize("section, message", [
-    ({"rankdir": "sideways"}, "rankdir"),
-    ({"router_shape": "hexagon-ish"}, "router_shape"),
-    ({"names": ["not", "a", "map"]}, "names"),
-    ("not a mapping", "mapping"),
-])
+@pytest.mark.parametrize(
+    "section, message",
+    [
+        ({"rankdir": "sideways"}, "rankdir"),
+        ({"router_shape": "hexagon-ish"}, "router_shape"),
+        ({"names": ["not", "a", "map"]}, "names"),
+        ("not a mapping", "mapping"),
+    ],
+)
 def test_bad_visualization_settings_are_rejected(section, message):
     with pytest.raises(VisualizationError, match=message):
         VisualOptions.from_settings(section)
@@ -379,14 +479,23 @@ def test_bad_visualization_settings_are_rejected(section, message):
 
 def test_visualization_settings_defaults_and_overrides():
     assert VisualOptions.from_settings(None) == VisualOptions()
-    opts = VisualOptions.from_settings({"rankdir": "LR", "show_interfaces": False, "names": {1: "x"}})
+    opts = VisualOptions.from_settings(
+        {"rankdir": "LR", "show_interfaces": False, "names": {1: "x"}}
+    )
     assert (opts.rankdir, opts.show_interfaces, opts.names) == ("LR", False, {"1": "x"})
 
 
 # ---------------------------------------- links caught mid-change (only one direction differs)
 def _attachment_record(removed: bool = True) -> dict:
-    return {"source": "net-10.1.1.1", "target": "10.0.0.1", "source_label": "net 10.1.1.0/24",
-            "target_label": "10.0.0.1", "metric": 0, "link_type": "attachment", "area": "0.0.0.0"}
+    return {
+        "source": "net-10.1.1.1",
+        "target": "10.0.0.1",
+        "source_label": "net 10.1.1.0/24",
+        "target_label": "10.0.0.1",
+        "metric": 0,
+        "link_type": "attachment",
+        "area": "0.0.0.0",
+    }
 
 
 def _only_edge_line(src: str) -> str:
@@ -406,11 +515,18 @@ def test_link_is_not_drawn_removed_while_the_router_still_advertises_it():
 def test_link_is_not_drawn_new_when_only_one_direction_is_new():
     g = _hub_graph(1)
     new_side = {"source": "10.0.0.1", "target": "net-10.1.1.1"}
-    line = _only_edge_line(_src(g, TopologyDiff(baseline_available=True, added_edges=[new_side])))
+    line = _only_edge_line(
+        _src(g, TopologyDiff(baseline_available=True, added_edges=[new_side]))
+    )
     assert COLOR_ADDED not in line
 
 
 def test_link_is_new_when_every_direction_that_exists_is_new():
     g = _hub_graph(1)
-    both = [{"source": "10.0.0.1", "target": "net-10.1.1.1"}, {"source": "net-10.1.1.1", "target": "10.0.0.1"}]
-    assert COLOR_ADDED in _only_edge_line(_src(g, TopologyDiff(baseline_available=True, added_edges=both)))
+    both = [
+        {"source": "10.0.0.1", "target": "net-10.1.1.1"},
+        {"source": "net-10.1.1.1", "target": "10.0.0.1"},
+    ]
+    assert COLOR_ADDED in _only_edge_line(
+        _src(g, TopologyDiff(baseline_available=True, added_edges=both))
+    )

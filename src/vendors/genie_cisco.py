@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   genie_cisco.py
@@ -66,13 +67,17 @@ class GenieCiscoAdapter(LsdbAdapter):
             parsers = importlib.import_module(module)  # slow import, hence done lazily
             from genie.metaparser.util.exceptions import SchemaEmptyParserError
         except ImportError as exc:
-            raise ParserError("Cisco pyATS/Genie is not installed. Run: pip install 'pyats[library]'") from exc
+            raise ParserError(
+                "Cisco pyATS/Genie is not installed. Run: pip install 'pyats[library]'"
+            ) from exc
         self._router_parser = getattr(parsers, router_cls)
         self._network_parser = getattr(parsers, network_cls)
         self._empty_exc = SchemaEmptyParserError
 
     # ------------------------------------------------------------------ Genie
-    def _genie(self, parser_cls: type, raw: str, name: str, allow_empty: bool = False) -> dict:
+    def _genie(
+        self, parser_cls: type, raw: str, name: str, allow_empty: bool = False
+    ) -> dict:
         """Run one Genie parser against raw text (no live device needed)."""
         if not raw or not raw.strip():
             if allow_empty:
@@ -86,15 +91,21 @@ class GenieCiscoAdapter(LsdbAdapter):
                 return {}
             raise ParserError(f"Genie found no {name} LSAs in the output") from exc
         except Exception as exc:  # Genie raises assorted schema/regex errors
-            raise ParserError(f"Genie failed to parse the {name} LSDB output: {exc!r}") from exc
+            raise ParserError(
+                f"Genie failed to parse the {name} LSDB output: {exc!r}"
+            ) from exc
 
     def parse(self, raw_router: str, raw_network: str, process_id: str | None) -> Lsdb:
         router_data = self._genie(self._router_parser, raw_router, "router")
-        network_data = self._genie(self._network_parser, raw_network, "network", allow_empty=True)
+        network_data = self._genie(
+            self._network_parser, raw_network, "network", allow_empty=True
+        )
         return self.from_genie(router_data, network_data, process_id)
 
     # ---------------------------------------------------------------- walking
-    def from_genie(self, router_data: dict, network_data: dict, process_id: str | None) -> Lsdb:
+    def from_genie(
+        self, router_data: dict, network_data: dict, process_id: str | None
+    ) -> Lsdb:
         """Flatten already-parsed Genie dictionaries (also used directly by the tests)."""
         lsdb = Lsdb(process_ids=self._instances(router_data))
         for area, lsa in self._iter_lsas(router_data, LSA_TYPE_ROUTER, process_id):
@@ -119,7 +130,9 @@ class GenieCiscoAdapter(LsdbAdapter):
         if DEFAULT_VRF in vrfs:
             return [vrfs[DEFAULT_VRF]]
         if vrfs:
-            logger.warning("No '%s' VRF in Genie output; using: %s", DEFAULT_VRF, ", ".join(vrfs))
+            logger.warning(
+                "No '%s' VRF in Genie output; using: %s", DEFAULT_VRF, ", ".join(vrfs)
+            )
         return list(vrfs.values())
 
     def _iter_lsas(self, parsed: dict, lsa_type: int, process_id: str | None):
@@ -155,16 +168,33 @@ class GenieCiscoAdapter(LsdbAdapter):
             return None
 
     def _router_lsa(self, area: str, lsa: dict[str, Any]) -> RouterLsa:
-        router = RouterLsa(router_id=str(lsa.get("adv_router") or lsa.get("lsa_id")), area=area)
-        links = (((lsa.get("ospfv2") or {}).get("body") or {}).get("router") or {}).get("links") or {}
+        router = RouterLsa(
+            router_id=str(lsa.get("adv_router") or lsa.get("lsa_id")), area=area
+        )
+        links = (((lsa.get("ospfv2") or {}).get("body") or {}).get("router") or {}).get(
+            "links"
+        ) or {}
         for link in links.values():
             kind = link_kind(str(link.get("type", "")))
             if kind is None:
-                logger.debug("Router %s: ignoring unsupported link type %r", router.router_id, link.get("type"))
+                logger.debug(
+                    "Router %s: ignoring unsupported link type %r",
+                    router.router_id,
+                    link.get("type"),
+                )
                 continue
             metric = None if kind == KIND_STUB else self._metric(link)
-            link_data = None if kind == KIND_STUB else (str(link.get("link_data")) if link.get("link_data") else None)
+            link_data = (
+                None
+                if kind == KIND_STUB
+                else (str(link.get("link_data")) if link.get("link_data") else None)
+            )
             router.links.append(
-                LinkRecord(kind=kind, link_id=str(link.get("link_id")), metric=metric, link_data=link_data)
+                LinkRecord(
+                    kind=kind,
+                    link_id=str(link.get("link_id")),
+                    metric=metric,
+                    link_data=link_data,
+                )
             )
         return router

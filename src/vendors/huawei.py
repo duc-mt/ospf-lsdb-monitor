@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   huawei.py
@@ -97,12 +98,21 @@ class HuaweiAdapter(LsdbAdapter):
 
         for lsa in routers:
             if lsa.lsa_type.lower() == "router" and self._wanted(lsa, process_id):
-                lsdb.router_lsas.append(RouterLsa(router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links))
+                lsdb.router_lsas.append(
+                    RouterLsa(
+                        router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links
+                    )
+                )
         for lsa in networks:
             if lsa.lsa_type.lower() == "network" and self._wanted(lsa, process_id):
                 lsdb.network_lsas.append(
-                    NetworkLsa(address=lsa.lsa_id, dr=lsa.adv, area=lsa.area, mask=dotted_mask(lsa.mask),
-                               attached=lsa.attached)
+                    NetworkLsa(
+                        address=lsa.lsa_id,
+                        dr=lsa.adv,
+                        area=lsa.area,
+                        mask=dotted_mask(lsa.mask),
+                        attached=lsa.attached,
+                    )
                 )
         return lsdb
 
@@ -121,40 +131,42 @@ class HuaweiAdapter(LsdbAdapter):
         link: LinkRecord | None = None
 
         for line in (raw or "").splitlines():
-            if (m := _PROCESS.search(line)):
+            if m := _PROCESS.search(line):
                 process = m.group(1)
                 processes.add(process)
                 cur, link = None, None
                 continue
-            if (m := _AREA.match(line)):
+            if m := _AREA.match(line):
                 area, cur, link = m.group(1), None, None
                 continue
-            if (m := _TYPE.match(line)):
+            if m := _TYPE.match(line):
                 cur = _Lsa(area=area, process=process, lsa_type=m.group(1))
                 lsas.append(cur)
                 link = None
                 continue
             if cur is None:
                 continue
-            if (m := _LS_ID.match(line)):
+            if m := _LS_ID.match(line):
                 cur.lsa_id = m.group(1)
                 # 'Adv rtr' is sometimes glued onto the same line in copy-pasted output
-            if (m := _ADV.search(line)):
+            if m := _ADV.search(line):
                 cur.adv = m.group(1)
             if cur.lsa_type.lower() == "router":
-                if (m := _LINK_ID.match(line)):
+                if m := _LINK_ID.match(line):
                     link = LinkRecord(kind="", link_id=m.group(1), metric=None)
                     cur.links.append(link)
                 elif link is not None and (m := _LINK_DATA.match(line)):
-                    link.link_data = m.group(1)  # mask for stub links; only used for non-stub
+                    link.link_data = m.group(
+                        1
+                    )  # mask for stub links; only used for non-stub
                 elif link is not None and (m := _LINK_TYPE.match(line)):
                     link.kind = link_kind(m.group(1)) or ""
                 elif link is not None and (m := _METRIC.match(line)):
                     link.metric = int(m.group(1))
             elif cur.lsa_type.lower() == "network":
-                if (m := _MASK.match(line)):
+                if m := _MASK.match(line):
                     cur.mask = m.group(1)
-                elif (m := _ATTACHED.match(line)):
+                elif m := _ATTACHED.match(line):
                     cur.attached.append(m.group(1))
 
         # 'Link Type' follows 'Link ID', so a link's kind is only known after the fact;

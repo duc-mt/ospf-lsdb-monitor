@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   __init__.py
@@ -47,7 +48,7 @@ def node_sort_key(node_id: str) -> tuple:
     text = str(node_id)
     kind = 0
     if text.startswith(NETWORK_ID_PREFIX):
-        kind, text = 1, text[len(NETWORK_ID_PREFIX):]
+        kind, text = 1, text[len(NETWORK_ID_PREFIX) :]
     try:
         return (kind, 0, int(ipaddress.ip_address(text)), "")
     except ValueError:

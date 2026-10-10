@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   test_parser.py
@@ -48,7 +49,9 @@ def _simple_lsdb() -> Lsdb:
                 links=[
                     LinkRecord(kind=KIND_P2P, link_id="10.0.0.2", metric=10),
                     LinkRecord(kind=KIND_TRANSIT, link_id="192.168.1.1", metric=1),
-                    LinkRecord(kind=KIND_STUB, link_id="10.0.0.100", metric=5),  # must be ignored
+                    LinkRecord(
+                        kind=KIND_STUB, link_id="10.0.0.100", metric=5
+                    ),  # must be ignored
                 ],
             ),
             RouterLsa(
@@ -89,7 +92,9 @@ def test_parallel_edge_keeps_lower_metric():
                 area="0.0.0.0",
                 links=[
                     LinkRecord(kind=KIND_P2P, link_id="10.0.0.2", metric=100),
-                    LinkRecord(kind=KIND_P2P, link_id="10.0.0.2", metric=10),  # lower — must win
+                    LinkRecord(
+                        kind=KIND_P2P, link_id="10.0.0.2", metric=10
+                    ),  # lower — must win
                 ],
             ),
         ]
@@ -134,8 +139,8 @@ def test_none_metric_link_is_skipped_not_raised():
     )
     parsed = _parser()._build(lsdb)
     edge_pairs = {(e["source"], e["target"]) for e in parsed["edges"]}
-    assert ("10.0.0.1", "10.0.0.2") not in edge_pairs   # None metric skipped
-    assert ("10.0.0.1", "10.0.0.3") in edge_pairs        # valid edge present
+    assert ("10.0.0.1", "10.0.0.2") not in edge_pairs  # None metric skipped
+    assert ("10.0.0.1", "10.0.0.3") in edge_pairs  # valid edge present
 
 
 # ------------------------------------------------------------- node upsert
@@ -143,12 +148,20 @@ def test_upsert_node_merges_areas():
     """A router seen in two areas accumulates both."""
     lsdb = Lsdb(
         router_lsas=[
-            RouterLsa("10.0.0.1", area="0.0.0.0", links=[
-                LinkRecord(KIND_P2P, "10.0.0.2", 10),
-            ]),
-            RouterLsa("10.0.0.1", area="0.0.0.1", links=[
-                LinkRecord(KIND_P2P, "10.0.0.3", 10),
-            ]),
+            RouterLsa(
+                "10.0.0.1",
+                area="0.0.0.0",
+                links=[
+                    LinkRecord(KIND_P2P, "10.0.0.2", 10),
+                ],
+            ),
+            RouterLsa(
+                "10.0.0.1",
+                area="0.0.0.1",
+                links=[
+                    LinkRecord(KIND_P2P, "10.0.0.3", 10),
+                ],
+            ),
         ]
     )
     parsed = _parser()._build(lsdb)
@@ -195,13 +208,25 @@ def test_attachment_edges_have_zero_metric():
 def test_link_data_becomes_interface_address_on_the_edge():
     lsdb = Lsdb(
         router_lsas=[
-            RouterLsa("10.0.0.1", area="0.0.0.0", links=[
-                LinkRecord(KIND_P2P, "10.0.0.2", 10, link_data="10.12.0.1"),
-                LinkRecord(KIND_TRANSIT, "192.168.1.1", 1, link_data="192.168.1.1"),
-                LinkRecord(KIND_P2P, "10.0.0.9", 5),  # platform gave no address
-            ]),
+            RouterLsa(
+                "10.0.0.1",
+                area="0.0.0.0",
+                links=[
+                    LinkRecord(KIND_P2P, "10.0.0.2", 10, link_data="10.12.0.1"),
+                    LinkRecord(KIND_TRANSIT, "192.168.1.1", 1, link_data="192.168.1.1"),
+                    LinkRecord(KIND_P2P, "10.0.0.9", 5),  # platform gave no address
+                ],
+            ),
         ],
-        network_lsas=[NetworkLsa("192.168.1.1", dr="10.0.0.1", area="0.0.0.0", mask="/24", attached=["10.0.0.1"])],
+        network_lsas=[
+            NetworkLsa(
+                "192.168.1.1",
+                dr="10.0.0.1",
+                area="0.0.0.0",
+                mask="/24",
+                attached=["10.0.0.1"],
+            )
+        ],
     )
     edges = {(e["source"], e["target"]): e for e in _parser()._build(lsdb)["edges"]}
     assert edges[("10.0.0.1", "10.0.0.2")]["interface_address"] == "10.12.0.1"
@@ -212,9 +237,19 @@ def test_link_data_becomes_interface_address_on_the_edge():
 
 
 def test_lower_metric_parallel_link_brings_its_own_interface_address():
-    lsdb = Lsdb(router_lsas=[RouterLsa("10.0.0.1", area="0.0.0.0", links=[
-        LinkRecord(KIND_P2P, "10.0.0.2", 100, link_data="10.1.0.1"),
-        LinkRecord(KIND_P2P, "10.0.0.2", 10, link_data="10.2.0.1"),  # cheaper link wins, address included
-    ])])
+    lsdb = Lsdb(
+        router_lsas=[
+            RouterLsa(
+                "10.0.0.1",
+                area="0.0.0.0",
+                links=[
+                    LinkRecord(KIND_P2P, "10.0.0.2", 100, link_data="10.1.0.1"),
+                    LinkRecord(
+                        KIND_P2P, "10.0.0.2", 10, link_data="10.2.0.1"
+                    ),  # cheaper link wins, address included
+                ],
+            )
+        ]
+    )
     (edge,) = _parser()._build(lsdb)["edges"]
     assert (edge["metric"], edge["interface_address"]) == (10, "10.2.0.1")

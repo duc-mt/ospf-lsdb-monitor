@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   parser.py
@@ -68,7 +69,11 @@ __all__ = ["BaseParser", "OSPFParser", "ParserError"]
 
 logger = logging.getLogger(__name__)
 
-_EDGE_TYPE = {KIND_P2P: "point-to-point", KIND_TRANSIT: "transit", KIND_VIRTUAL: "virtual-link"}
+_EDGE_TYPE = {
+    KIND_P2P: "point-to-point",
+    KIND_TRANSIT: "transit",
+    KIND_VIRTUAL: "virtual-link",
+}
 
 
 class BaseParser(ABC):
@@ -82,7 +87,9 @@ class BaseParser(ABC):
 class OSPFParser(BaseParser):
     """Parse Type 1 (router) and Type 2 (network) LSAs for any registered platform."""
 
-    def __init__(self, device_type: str = "cisco_ios", process_id: int | str | None = None) -> None:
+    def __init__(
+        self, device_type: str = "cisco_ios", process_id: int | str | None = None
+    ) -> None:
         """
         Args:
             device_type: Netmiko-style device type; selects the platform adapter.
@@ -97,8 +104,11 @@ class OSPFParser(BaseParser):
         self.profile = get_profile(device_type)
         self.adapter = self.profile.adapter_factory()
         if self.process_id is not None and not self.adapter.filters_by_process:
-            logger.warning("%s: ospf_process_id '%s' cannot be applied and is ignored",
-                           self.profile.description, self.process_id)
+            logger.warning(
+                "%s: ospf_process_id '%s' cannot be applied and is ignored",
+                self.profile.description,
+                self.process_id,
+            )
 
     # ------------------------------------------------------------------- parse
     def parse(self, raw_router: str, raw_network: str = "") -> dict[str, Any]:
@@ -131,8 +141,15 @@ class OSPFParser(BaseParser):
             mask = dotted_mask(lsa.mask)
             net_id = network_node_id(lsa.address)
             self._upsert_node(
-                nodes, net_id, "network", lsa.area, resolved=True,
-                address=lsa.address, dr=lsa.dr, mask=mask, prefix=self._prefix(lsa.address, mask),
+                nodes,
+                net_id,
+                "network",
+                lsa.area,
+                resolved=True,
+                address=lsa.address,
+                dr=lsa.dr,
+                mask=mask,
+                prefix=self._prefix(lsa.address, mask),
             )
             for attached in lsa.attached:
                 self._upsert_node(nodes, attached, "router", lsa.area)
@@ -140,8 +157,11 @@ class OSPFParser(BaseParser):
 
         unresolved = sorted(n["id"] for n in nodes.values() if not n["resolved"])
         if unresolved:
-            logger.info("%d node(s) referenced but not described by an LSA in this database: %s",
-                        len(unresolved), ", ".join(unresolved))
+            logger.info(
+                "%d node(s) referenced but not described by an LSA in this database: %s",
+                len(unresolved),
+                ", ".join(unresolved),
+            )
 
         for node in nodes.values():
             node["areas"] = sorted(node["areas"])
@@ -155,7 +175,12 @@ class OSPFParser(BaseParser):
                 "parsed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             },
             "nodes": [nodes[k] for k in sorted(nodes, key=node_sort_key)],
-            "edges": [edges[k] for k in sorted(edges, key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1])))],
+            "edges": [
+                edges[k]
+                for k in sorted(
+                    edges, key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1]))
+                )
+            ],
         }
 
     def _add_router_link(self, nodes, edges, router_id: str, link, area: str) -> None:
@@ -163,7 +188,12 @@ class OSPFParser(BaseParser):
         if link.kind == KIND_STUB or link.kind not in _EDGE_TYPE:
             return
         if link.metric is None:
-            logger.warning("Router %s: %s link %s has no usable metric; skipped", router_id, link.kind, link.link_id)
+            logger.warning(
+                "Router %s: %s link %s has no usable metric; skipped",
+                router_id,
+                link.kind,
+                link.link_id,
+            )
             return
         if link.kind == KIND_TRANSIT:
             # link_id is the DR's interface address -> the network node.
@@ -173,8 +203,15 @@ class OSPFParser(BaseParser):
             # link_id is the neighbor's router ID.
             target = link.link_id
             self._upsert_node(nodes, target, "router", area)
-        self._add_edge(edges, router_id, target, link.metric, _EDGE_TYPE[link.kind], area,
-                       interface_address=link.link_data)
+        self._add_edge(
+            edges,
+            router_id,
+            target,
+            link.metric,
+            _EDGE_TYPE[link.kind],
+            area,
+            interface_address=link.link_data,
+        )
 
     @staticmethod
     def _prefix(address: str, mask: str | None) -> str | None:
@@ -185,10 +222,18 @@ class OSPFParser(BaseParser):
 
     @staticmethod
     def _upsert_node(
-        nodes: dict[str, dict], node_id: str, node_type: str, area: str, resolved: bool = False, **attrs: Any
+        nodes: dict[str, dict],
+        node_id: str,
+        node_type: str,
+        area: str,
+        resolved: bool = False,
+        **attrs: Any,
     ) -> None:
         """Create a node or merge more information into an existing one."""
-        node = nodes.setdefault(node_id, {"id": node_id, "type": node_type, "areas": set(), "resolved": False})
+        node = nodes.setdefault(
+            node_id,
+            {"id": node_id, "type": node_type, "areas": set(), "resolved": False},
+        )
         node["areas"].add(area)
         if resolved:
             node["resolved"] = True
@@ -196,7 +241,12 @@ class OSPFParser(BaseParser):
 
     @staticmethod
     def _add_edge(
-        edges: dict[tuple[str, str], dict], source: str, target: str, metric: int | None, link_type: str, area: str,
+        edges: dict[tuple[str, str], dict],
+        source: str,
+        target: str,
+        metric: int | None,
+        link_type: str,
+        area: str,
         interface_address: str | None = None,
     ) -> None:
         """Add a directed edge; parallel links between the same pair keep the lowest metric.
@@ -209,7 +259,13 @@ class OSPFParser(BaseParser):
         """
         if metric is None:
             return
-        record = {"source": source, "target": target, "metric": metric, "link_type": link_type, "area": area}
+        record = {
+            "source": source,
+            "target": target,
+            "metric": metric,
+            "link_type": link_type,
+            "area": area,
+        }
         if interface_address:
             record["interface_address"] = interface_address
         existing = edges.get((source, target))
@@ -218,11 +274,19 @@ class OSPFParser(BaseParser):
         elif metric < existing["metric"]:
             logger.debug(
                 "Parallel link %s -> %s: replacing metric %s (area %s) with lower metric %s (area %s)",
-                source, target, existing["metric"], existing["area"], metric, area,
+                source,
+                target,
+                existing["metric"],
+                existing["area"],
+                metric,
+                area,
             )
             edges[(source, target)] = record
         else:
             logger.debug(
                 "Parallel link %s -> %s: keeping existing metric %s, discarding metric %s",
-                source, target, existing["metric"], metric,
+                source,
+                target,
+                existing["metric"],
+                metric,
             )

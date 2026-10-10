@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   cisco_style.py
@@ -58,7 +59,9 @@ _IP = r"\d+\.\d+\.\d+\.\d+"
 _HEADER = re.compile(rf"OSPF Router with ID\s*\(({_IP})\)(.*)")
 _PROCESS = re.compile(r"\((?:Process|Instance) ID\s+([^)\s]+)\)")
 _VRF = re.compile(r"\(VRF\s+([^)\s]+)\)")
-_AREA = re.compile(r"(?:Router|Net(?:work)?)\s+Link\s+States\s*\(Area\s+([\d.]+)\)", re.I)
+_AREA = re.compile(
+    r"(?:Router|Net(?:work)?)\s+Link\s+States\s*\(Area\s+([\d.]+)\)", re.I
+)
 _LS_START = re.compile(r"^\s*LS\s+age\s*:", re.I)
 _LS_TYPE = re.compile(r"^\s*LS\s+Type\s*:\s*(.+?)\s*$", re.I)
 _LS_ID = re.compile(rf"^\s*Link\s+State\s+ID\s*:\s*({_IP})", re.I)
@@ -109,13 +112,26 @@ class CiscoStyleTextAdapter(LsdbAdapter):
         lsdb.process_ids = sorted(set(seen.processes) | set(seen_net.processes))
 
         for lsa in router_text:
-            if self._wanted(lsa, process_id) and lsa.lsa_type.lower().startswith("router"):
-                lsdb.router_lsas.append(RouterLsa(router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links))
+            if self._wanted(lsa, process_id) and lsa.lsa_type.lower().startswith(
+                "router"
+            ):
+                lsdb.router_lsas.append(
+                    RouterLsa(
+                        router_id=lsa.adv or lsa.lsa_id, area=lsa.area, links=lsa.links
+                    )
+                )
         for lsa in network_text:
-            if self._wanted(lsa, process_id) and lsa.lsa_type.lower().startswith("network"):
+            if self._wanted(lsa, process_id) and lsa.lsa_type.lower().startswith(
+                "network"
+            ):
                 lsdb.network_lsas.append(
-                    NetworkLsa(address=lsa.lsa_id, dr=lsa.adv, area=lsa.area, mask=dotted_mask(lsa.mask),
-                               attached=lsa.attached)
+                    NetworkLsa(
+                        address=lsa.lsa_id,
+                        dr=lsa.adv,
+                        area=lsa.area,
+                        mask=dotted_mask(lsa.mask),
+                        attached=lsa.attached,
+                    )
                 )
         self._require_metrics(lsdb)
         return lsdb
@@ -159,7 +175,11 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                 close()
                 rest = header.group(2)
                 p, v = _PROCESS.search(rest), _VRF.search(rest)
-                process, vrf, area = (p.group(1) if p else None), (v.group(1) if v else None), UNKNOWN_AREA
+                process, vrf, area = (
+                    (p.group(1) if p else None),
+                    (v.group(1) if v else None),
+                    UNKNOWN_AREA,
+                )
                 if process:
                     seen.processes.add(process)
                 continue
@@ -173,13 +193,13 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                 continue
             if cur is None:
                 continue
-            if (m := _LS_TYPE.match(line)):
+            if m := _LS_TYPE.match(line):
                 cur.lsa_type = m.group(1)
-            elif (m := _LS_ID.match(line)):
+            elif m := _LS_ID.match(line):
                 cur.lsa_id = m.group(1)
-            elif (m := _ADV.match(line)):
+            elif m := _ADV.match(line):
                 cur.adv = m.group(1)
-            elif (m := _LINK.match(line)):
+            elif m := _LINK.match(line):
                 kind = link_kind(m.group(1))
                 link = LinkRecord(kind=kind, link_id="", metric=None) if kind else None
                 if link:
@@ -191,9 +211,9 @@ class CiscoStyleTextAdapter(LsdbAdapter):
                     link.link_data = m.group(1)
             elif link is not None and (m := _METRIC.match(line)):
                 link.metric = int(m.group(1))
-            elif (m := _MASK.match(line)):
+            elif m := _MASK.match(line):
                 cur.mask = m.group(1)
-            elif (m := _ATTACHED.match(line)):
+            elif m := _ATTACHED.match(line):
                 cur.attached.append(m.group(1))
         close()
         return lsas, seen

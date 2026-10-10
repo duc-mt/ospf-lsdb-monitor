@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   __init__.py
@@ -66,7 +67,9 @@ class VendorProfile:
     adapter_factory: Callable[[], LsdbAdapter]
     error_markers: tuple[str, ...]
 
-    def command(self, which: str, process_id: str | None, override: str | None = None) -> str:
+    def command(
+        self, which: str, process_id: str | None, override: str | None = None
+    ) -> str:
         """Return the CLI command for ``which`` (``"router"`` or ``"network"``).
 
         ``override`` is the user's ``device.commands.<which>`` setting; it may contain
@@ -76,7 +79,9 @@ class VendorProfile:
             if "{pid}" not in override:
                 return override
             if process_id is None:
-                raise ConfigError(f"device.commands.{which} uses {{pid}} but ospf_process_id is not set")
+                raise ConfigError(
+                    f"device.commands.{which} uses {{pid}} but ospf_process_id is not set"
+                )
             return override.replace("{pid}", process_id)
         pair = self.router if which == "router" else self.network
         if process_id is not None and pair.with_pid:
@@ -85,7 +90,9 @@ class VendorProfile:
 
 
 # ------------------------------------------------------------------ factories
-def _genie_cisco(module: str, router_cls: str, network_cls: str) -> Callable[[], LsdbAdapter]:
+def _genie_cisco(
+    module: str, router_cls: str, network_cls: str
+) -> Callable[[], LsdbAdapter]:
     def factory() -> LsdbAdapter:
         from src.vendors.genie_cisco import GenieCiscoAdapter
 
@@ -124,8 +131,12 @@ def _huawei() -> LsdbAdapter:
 
 # ------------------------------------------------------------------- registry
 _IOS_ERRORS = (
-    "Invalid input detected", "% Incomplete command", "% Ambiguous command",
-    "% Unknown command", "%OSPF: ", "% OSPF: ",
+    "Invalid input detected",
+    "% Incomplete command",
+    "% Ambiguous command",
+    "% Unknown command",
+    "%OSPF: ",
+    "% OSPF: ",
 )
 
 _IOSXE = "genie.libs.parser.iosxe.show_ospf_database"
@@ -145,12 +156,19 @@ register(
     VendorProfile(
         key="cisco_ios",
         description="Cisco IOS / IOS-XE (Genie)",
-        router=CommandPair("show ip ospf database router", "show ip ospf {pid} database router"),
-        network=CommandPair("show ip ospf database network", "show ip ospf {pid} database network"),
-        adapter_factory=_genie_cisco(_IOSXE, "ShowIpOspfDatabaseRouter", "ShowIpOspfDatabaseNetwork"),
+        router=CommandPair(
+            "show ip ospf database router", "show ip ospf {pid} database router"
+        ),
+        network=CommandPair(
+            "show ip ospf database network", "show ip ospf {pid} database network"
+        ),
+        adapter_factory=_genie_cisco(
+            _IOSXE, "ShowIpOspfDatabaseRouter", "ShowIpOspfDatabaseNetwork"
+        ),
         error_markers=_IOS_ERRORS,
     ),
-    "cisco_ios", "cisco_xe",
+    "cisco_ios",
+    "cisco_xe",
 )
 register(
     VendorProfile(
@@ -158,8 +176,11 @@ register(
         description="Cisco IOS-XR (Genie; default VRF; process filter applied after parsing)",
         router=CommandPair("show ospf vrf all-inclusive database router"),
         network=CommandPair("show ospf vrf all-inclusive database network"),
-        adapter_factory=_genie_cisco(_IOSXR, "ShowOspfVrfAllInclusiveDatabaseRouter",
-                                     "ShowOspfVrfAllInclusiveDatabaseNetwork"),
+        adapter_factory=_genie_cisco(
+            _IOSXR,
+            "ShowOspfVrfAllInclusiveDatabaseRouter",
+            "ShowOspfVrfAllInclusiveDatabaseNetwork",
+        ),
         error_markers=_IOS_ERRORS,
     )
 )
@@ -167,9 +188,17 @@ register(
     VendorProfile(
         key="cisco_nxos",
         description="Cisco NX-OS (Genie; default VRF)",
-        router=CommandPair("show ip ospf database router detail", "show ip ospf {pid} database router detail"),
-        network=CommandPair("show ip ospf database network detail", "show ip ospf {pid} database network detail"),
-        adapter_factory=_genie_cisco(_NXOS, "ShowIpOspfDatabaseRouterDetail", "ShowIpOspfDatabaseNetworkDetail"),
+        router=CommandPair(
+            "show ip ospf database router detail",
+            "show ip ospf {pid} database router detail",
+        ),
+        network=CommandPair(
+            "show ip ospf database network detail",
+            "show ip ospf {pid} database network detail",
+        ),
+        adapter_factory=_genie_cisco(
+            _NXOS, "ShowIpOspfDatabaseRouterDetail", "ShowIpOspfDatabaseNetworkDetail"
+        ),
         error_markers=_IOS_ERRORS,
     )
 )
@@ -187,10 +216,18 @@ register(
     VendorProfile(
         key="arista_eos",
         description="Arista EOS (text parser)",
-        router=CommandPair("show ip ospf database router", "show ip ospf {pid} database router"),
-        network=CommandPair("show ip ospf database network", "show ip ospf {pid} database network"),
+        router=CommandPair(
+            "show ip ospf database router", "show ip ospf {pid} database router"
+        ),
+        network=CommandPair(
+            "show ip ospf database network", "show ip ospf {pid} database network"
+        ),
         adapter_factory=_arista,
-        error_markers=("% Invalid input", "% Incomplete command", "% Ambiguous command"),
+        error_markers=(
+            "% Invalid input",
+            "% Incomplete command",
+            "% Ambiguous command",
+        ),
     )
 )
 register(
@@ -200,20 +237,34 @@ register(
         router=CommandPair("show ip ospf database router"),
         network=CommandPair("show ip ospf database network"),
         adapter_factory=_frr,
-        error_markers=("Invalid command", "Unknown command", "Command incomplete",
-                       "% Unknown command", "% Command incomplete"),
+        error_markers=(
+            "Invalid command",
+            "Unknown command",
+            "Command incomplete",
+            "% Unknown command",
+            "% Command incomplete",
+        ),
     )
 )
 register(
     VendorProfile(
         key="huawei",
         description="Huawei VRP (text parser)",
-        router=CommandPair("display ospf lsdb router", "display ospf {pid} lsdb router"),
-        network=CommandPair("display ospf lsdb network", "display ospf {pid} lsdb network"),
+        router=CommandPair(
+            "display ospf lsdb router", "display ospf {pid} lsdb router"
+        ),
+        network=CommandPair(
+            "display ospf lsdb network", "display ospf {pid} lsdb network"
+        ),
         adapter_factory=_huawei,
-        error_markers=("Error: Wrong parameter", "Error: Unrecognized command", "Error: Incomplete command"),
+        error_markers=(
+            "Error: Wrong parameter",
+            "Error: Unrecognized command",
+            "Error: Incomplete command",
+        ),
     ),
-    "huawei", "huawei_vrpv8",
+    "huawei",
+    "huawei_vrpv8",
 )
 
 #: Platforms that are known but deliberately not supported, with the reason.

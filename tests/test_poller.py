@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   test_poller.py
@@ -135,6 +136,7 @@ def test_file_poller_missing_network_file_is_ok(tmp_path):
 
 def test_file_poller_missing_router_file_raises(tmp_path):
     from src.poller import PollerError
+
     with pytest.raises(PollerError):
         FilePoller(tmp_path).poll()
 
@@ -144,18 +146,32 @@ def _topology() -> dict:
     ids = ["10.0.0.1", "10.0.0.2", "10.0.0.3"]
     return {
         "metadata": {},
-        "nodes": [{"id": r, "type": "router", "areas": ["0.0.0.0"], "resolved": True} for r in ids],
+        "nodes": [
+            {"id": r, "type": "router", "areas": ["0.0.0.0"], "resolved": True}
+            for r in ids
+        ],
         "edges": [
-            {"source": "10.0.0.1", "target": "10.0.0.2", "metric": 10,
-             "link_type": "point-to-point", "area": "0.0.0.0"},
-            {"source": "10.0.0.2", "target": "10.0.0.1", "metric": 10,
-             "link_type": "point-to-point", "area": "0.0.0.0"},
+            {
+                "source": "10.0.0.1",
+                "target": "10.0.0.2",
+                "metric": 10,
+                "link_type": "point-to-point",
+                "area": "0.0.0.0",
+            },
+            {
+                "source": "10.0.0.2",
+                "target": "10.0.0.1",
+                "metric": 10,
+                "link_type": "point-to-point",
+                "area": "0.0.0.0",
+            },
         ],
     }
 
 
 def test_dry_run_does_not_write_state_files(tmp_path):
     from src.graph_engine import GraphEngine
+
     engine = GraphEngine(tmp_path)
     _, diff = engine.process(_topology(), dry_run=True)
     assert not diff.baseline_updated
@@ -165,8 +181,9 @@ def test_dry_run_does_not_write_state_files(tmp_path):
 
 def test_dry_run_still_returns_correct_diff(tmp_path):
     from src.graph_engine import GraphEngine
+
     engine = GraphEngine(tmp_path)
-    engine.process(_topology())               # establish baseline
+    engine.process(_topology())  # establish baseline
     modified = dict(_topology())
     modified["nodes"] = modified["nodes"][:2]  # remove one node
     _, diff = engine.process(modified, dry_run=True)
@@ -180,6 +197,7 @@ def test_dry_run_still_returns_correct_diff(tmp_path):
 
 def test_dry_run_does_not_write_changelog(tmp_path):
     from src.graph_engine import GraphEngine
+
     engine = GraphEngine(tmp_path)
     engine.process(_topology(), dry_run=True)
     assert not engine.changelog_path.exists()
@@ -187,6 +205,7 @@ def test_dry_run_does_not_write_changelog(tmp_path):
 
 def test_normal_run_appends_changelog(tmp_path):
     from src.graph_engine import GraphEngine
+
     engine = GraphEngine(tmp_path)
     engine.process(_topology())
     engine.process(_topology())
@@ -200,6 +219,7 @@ def test_normal_run_appends_changelog(tmp_path):
 
 def test_suspect_run_appends_changelog_with_suspect_status(tmp_path):
     from src.graph_engine import GraphEngine, GuardConfig
+
     engine = GraphEngine(tmp_path, GuardConfig(min_node_retention=0.9))
     engine.process(_topology())
     # Remove 2 of 3 nodes → retention 33% < 90% → suspect

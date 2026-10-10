@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   visualizer.py
@@ -86,10 +87,16 @@ class VisualOptions:
 
     rankdir: str = "auto"  # auto | TB | LR | BT | RL
     router_shape: str = "box3d"
-    show_interfaces: bool = True  # print the advertising router's interface address next to each cost
+    show_interfaces: bool = (
+        True  # print the advertising router's interface address next to each cost
+    )
     cost_weighted_lines: bool = True
-    area_clusters: bool = True  # dashed cluster per OSPF area when there is more than one
-    names: dict[str, str] = field(default_factory=dict)  # router-ID -> hostname, shown above the ID
+    area_clusters: bool = (
+        True  # dashed cluster per OSPF area when there is more than one
+    )
+    names: dict[str, str] = field(
+        default_factory=dict
+    )  # router-ID -> hostname, shown above the ID
 
     @classmethod
     def from_settings(cls, section: dict[str, Any] | None) -> "VisualOptions":
@@ -100,10 +107,14 @@ class VisualOptions:
         """
         section = section or {}
         if not isinstance(section, dict):
-            raise VisualizationError("'visualization' in settings.yaml must be a mapping")
+            raise VisualizationError(
+                "'visualization' in settings.yaml must be a mapping"
+            )
         names = section.get("names") or {}
         if not isinstance(names, dict):
-            raise VisualizationError("visualization.names must map router IDs to host names")
+            raise VisualizationError(
+                "visualization.names must map router IDs to host names"
+            )
         options = cls(
             rankdir=str(section.get("rankdir", "auto")),
             router_shape=str(section.get("router_shape", "box3d")),
@@ -113,9 +124,13 @@ class VisualOptions:
             names={str(k): str(v) for k, v in names.items()},
         )
         if options.rankdir not in _RANKDIRS:
-            raise VisualizationError(f"visualization.rankdir must be one of {', '.join(_RANKDIRS)}")
+            raise VisualizationError(
+                f"visualization.rankdir must be one of {', '.join(_RANKDIRS)}"
+            )
         if options.router_shape not in _ROUTER_SHAPES:
-            raise VisualizationError(f"visualization.router_shape must be one of {', '.join(_ROUTER_SHAPES)}")
+            raise VisualizationError(
+                f"visualization.router_shape must be one of {', '.join(_ROUTER_SHAPES)}"
+            )
         return options
 
 
@@ -139,7 +154,11 @@ class _Link:
 
     @property
     def cost_bearing(self) -> list[_Side]:
-        return [s for s in (self.ab, self.ba) if s and s.attrs.get("link_type") != "attachment"]
+        return [
+            s
+            for s in (self.ab, self.ba)
+            if s and s.attrs.get("link_type") != "attachment"
+        ]
 
 
 class TopologyVisualizer:
@@ -162,7 +181,9 @@ class TopologyVisualizer:
         self.options = options or VisualOptions()
         self.image_format = self.output_path.suffix.lstrip(".").lower() or "png"
         if self.image_format not in graphviz.FORMATS:
-            raise VisualizationError(f"Unsupported output format '.{self.image_format}'")
+            raise VisualizationError(
+                f"Unsupported output format '.{self.image_format}'"
+            )
         if layout not in graphviz.ENGINES:
             raise VisualizationError(f"Unknown Graphviz layout engine '{layout}'")
 
@@ -175,12 +196,21 @@ class TopologyVisualizer:
         removed_nodes = {n["id"]: n for n in diff.removed_nodes}
         links = self._collect_links(graph, diff, removed_nodes)
 
-        dot = graphviz.Graph(name="OSPF_Topology", engine=self.layout, format=self.image_format)
+        dot = graphviz.Graph(
+            name="OSPF_Topology", engine=self.layout, format=self.image_format
+        )
         dot.attr(
-            label=self._title(graph, diff, links), labelloc="t", fontname="Helvetica", fontsize="13",
+            label=self._title(graph, diff, links),
+            labelloc="t",
+            fontname="Helvetica",
+            fontsize="13",
             fontcolor=COLOR_REMOVED if diff.suspect_reasons else "black",
-            rankdir=self._rankdir(links), splines="true", overlap="false",
-            nodesep="0.5", ranksep="1.1", dpi="150",
+            rankdir=self._rankdir(links),
+            splines="true",
+            overlap="false",
+            nodesep="0.5",
+            ranksep="1.1",
+            dpi="150",
         )
         dot.attr("node", fontname="Helvetica", fontsize="11")
         dot.attr("edge", fontname="Helvetica", fontsize="10", labeldistance="2.4")
@@ -189,15 +219,26 @@ class TopologyVisualizer:
 
         scale = self._cost_scale(links)
         for link in links:
-            for end in (link.a, link.b):  # an endpoint missing from graph and diff still needs a node
+            for end in (
+                link.a,
+                link.b,
+            ):  # an endpoint missing from graph and diff still needs a node
                 if end not in drawn:
-                    dot.node(end, label=end, style="filled,dashed", fillcolor=FILL_UNRESOLVED, color=COLOR_MUTED)
+                    dot.node(
+                        end,
+                        label=end,
+                        style="filled,dashed",
+                        fillcolor=FILL_UNRESOLVED,
+                        color=COLOR_MUTED,
+                    )
                     drawn.add(end)
             dot.edge(link.a, link.b, **self._edge_attrs(link, scale))
         return dot
 
     # ------------------------------------------------------------------- links
-    def _collect_links(self, graph: nx.DiGraph, diff: TopologyDiff, removed_nodes: dict[str, dict]) -> list[_Link]:
+    def _collect_links(
+        self, graph: nx.DiGraph, diff: TopologyDiff, removed_nodes: dict[str, dict]
+    ) -> list[_Link]:
         """Merge directed edges (current + removed) into one ``_Link`` per node pair."""
         added = {(e["source"], e["target"]) for e in diff.added_edges}
         changed = {(e["source"], e["target"]): e for e in diff.changed_metrics}
@@ -214,7 +255,8 @@ class TopologyVisualizer:
             key = frozenset((u, v))
             if key not in links:
                 swap = (is_network(u) and not is_network(v)) or (
-                    is_network(u) == is_network(v) and node_sort_key(v) < node_sort_key(u)
+                    is_network(u) == is_network(v)
+                    and node_sort_key(v) < node_sort_key(u)
                 )
                 links[key] = _Link(*((v, u) if swap else (u, v)))
             link = links[key]
@@ -224,12 +266,16 @@ class TopologyVisualizer:
                 link.ba = side
 
         for u, v, attrs in graph.edges(data=True):
-            status = "added" if (u, v) in added else "changed" if (u, v) in changed else None
+            status = (
+                "added" if (u, v) in added else "changed" if (u, v) in changed else None
+            )
             put(u, v, _Side(attrs, status, changed.get((u, v))))
         for record in diff.removed_edges:
             if not graph.has_edge(record["source"], record["target"]):
                 put(record["source"], record["target"], _Side(record, "removed"))
-        return sorted(links.values(), key=lambda l: (node_sort_key(l.a), node_sort_key(l.b)))
+        return sorted(
+            links.values(), key=lambda l: (node_sort_key(l.a), node_sort_key(l.b))
+        )
 
     @staticmethod
     def _link_status(link: _Link) -> str | None:
@@ -263,7 +309,11 @@ class TopologyVisualizer:
         attrs: dict[str, str] = {"color": COLOR_NORMAL, "fontcolor": COLOR_NORMAL}
 
         text_a, text_b = self._end_text(link.ab), self._end_text(link.ba)
-        on_segment = any(s.attrs.get("link_type") in ("transit", "attachment") for s in (link.ab, link.ba) if s)
+        on_segment = any(
+            s.attrs.get("link_type") in ("transit", "attachment")
+            for s in (link.ab, link.ba)
+            if s
+        )
         if on_segment:
             # Router <-> transit network: only the router's side carries a cost, so a centred label is
             # unambiguous (and keeps labels clear of busy router boxes).
@@ -278,12 +328,21 @@ class TopologyVisualizer:
             if text_b:
                 attrs["headlabel"] = text_b
 
-        costs = [s.attrs["metric"] for s in link.cost_bearing if isinstance(s.attrs.get("metric"), int)]
+        costs = [
+            s.attrs["metric"]
+            for s in link.cost_bearing
+            if isinstance(s.attrs.get("metric"), int)
+        ]
         attrs["penwidth"] = f"{scale(min(costs)) if costs else PEN_FLAT:.1f}"
         if status == "added":
             attrs.update(color=COLOR_ADDED, fontcolor=COLOR_ADDED, penwidth="2.8")
         elif status == "removed":
-            attrs.update(color=COLOR_REMOVED, fontcolor=COLOR_REMOVED, style="dashed", penwidth="2.4")
+            attrs.update(
+                color=COLOR_REMOVED,
+                fontcolor=COLOR_REMOVED,
+                style="dashed",
+                penwidth="2.4",
+            )
         elif status == "changed":
             attrs.update(color=COLOR_CHANGED, fontcolor=COLOR_CHANGED, penwidth="2.8")
         return attrs
@@ -296,21 +355,35 @@ class TopologyVisualizer:
             for s in link.cost_bearing
             if isinstance(s.attrs.get("metric"), int) and s.attrs["metric"] > 0
         ]
-        if not self.options.cost_weighted_lines or not costs or max(costs) == min(costs):
+        if (
+            not self.options.cost_weighted_lines
+            or not costs
+            or max(costs) == min(costs)
+        ):
             return lambda _cost: PEN_FLAT
         lo, hi = min(costs), max(costs)
-        return lambda cost: PEN_MAX - (PEN_MAX - PEN_MIN) * math.log(max(cost, lo) / lo) / math.log(hi / lo)
+        return lambda cost: (
+            PEN_MAX
+            - (PEN_MAX - PEN_MIN) * math.log(max(cost, lo) / lo) / math.log(hi / lo)
+        )
 
     # ------------------------------------------------------------------- nodes
     def _draw_nodes(
-        self, dot: graphviz.Graph, graph: nx.DiGraph, diff: TopologyDiff, removed_nodes: dict[str, dict]
+        self,
+        dot: graphviz.Graph,
+        graph: nx.DiGraph,
+        diff: TopologyDiff,
+        removed_nodes: dict[str, dict],
     ) -> set[str]:
         """Draw every node (area clusters when there is more than one area); return the IDs drawn."""
         added = {n["id"] for n in diff.added_nodes}
         entries: list[tuple[str, dict, str | None]] = [
-            (n, attrs, "added" if n in added else None) for n, attrs in graph.nodes(data=True)
+            (n, attrs, "added" if n in added else None)
+            for n, attrs in graph.nodes(data=True)
         ]
-        entries += [(n, rec, "removed") for n, rec in removed_nodes.items() if n not in graph]
+        entries += [
+            (n, rec, "removed") for n, rec in removed_nodes.items() if n not in graph
+        ]
         entries.sort(key=lambda e: node_sort_key(e[0]))
 
         every_area = {a for _, attrs, _ in entries for a in attrs.get("areas") or []}
@@ -318,19 +391,30 @@ class TopologyVisualizer:
         by_area: dict[str, list] = {}
         for entry in entries:
             areas = entry[1].get("areas") or []
-            if clustered and len(areas) == 1:  # ABRs (several areas) stay outside every cluster
+            if (
+                clustered and len(areas) == 1
+            ):  # ABRs (several areas) stay outside every cluster
                 by_area.setdefault(areas[0], []).append(entry)
             else:
                 self._draw_node(dot, *entry)
         for area in sorted(by_area):
             with dot.subgraph(name="cluster_area_" + re.sub(r"\W+", "_", area)) as sub:
-                sub.attr(label=f"Area {area}", labeljust="l", style="dashed", color=COLOR_MUTED, fontcolor=COLOR_MUTED,
-                         fontname="Helvetica", fontsize="12")
+                sub.attr(
+                    label=f"Area {area}",
+                    labeljust="l",
+                    style="dashed",
+                    color=COLOR_MUTED,
+                    fontcolor=COLOR_MUTED,
+                    fontname="Helvetica",
+                    fontsize="12",
+                )
                 for entry in by_area[area]:
                     self._draw_node(sub, *entry)
         return {e[0] for e in entries}
 
-    def _draw_node(self, target: graphviz.Graph, node_id: str, attrs: dict, status: str | None) -> None:
+    def _draw_node(
+        self, target: graphviz.Graph, node_id: str, attrs: dict, status: str | None
+    ) -> None:
         """Draw one node: shape by role, fill by resolved/unresolved, outline by diff status."""
         if attrs.get("type") == "network":
             label = display_name(node_id, attrs)
@@ -340,17 +424,33 @@ class TopologyVisualizer:
         else:
             name = self.options.names.get(node_id)
             label = f"{name}\\n{node_id}" if name else node_id
-            look = {"shape": self.options.router_shape, "fillcolor": FILL_ROUTER, "fontcolor": "white"}
+            look = {
+                "shape": self.options.router_shape,
+                "fillcolor": FILL_ROUTER,
+                "fontcolor": "white",
+            }
         look.update(style="filled", color=COLOR_NORMAL, penwidth="1.2")
 
-        if not attrs.get("resolved", True):  # referenced by a link, but no LSA of its own in the database
-            look.update(fillcolor=FILL_UNRESOLVED, fontcolor=COLOR_NORMAL, color=COLOR_MUTED, style="filled,dashed")
+        if not attrs.get(
+            "resolved", True
+        ):  # referenced by a link, but no LSA of its own in the database
+            look.update(
+                fillcolor=FILL_UNRESOLVED,
+                fontcolor=COLOR_NORMAL,
+                color=COLOR_MUTED,
+                style="filled,dashed",
+            )
             label += "\\n(no LSA)"
         if status == "added":
             look.update(color=COLOR_ADDED, penwidth="3")
         elif status == "removed":
-            look.update(color=COLOR_REMOVED, fontcolor=COLOR_REMOVED, fillcolor=FILL_REMOVED,
-                        style="filled,dashed", penwidth="2")
+            look.update(
+                color=COLOR_REMOVED,
+                fontcolor=COLOR_REMOVED,
+                fillcolor=FILL_REMOVED,
+                style="filled,dashed",
+                penwidth="2",
+            )
         target.node(node_id, label=label, **look)
 
     # ------------------------------------------------------------ layout / text
@@ -369,20 +469,34 @@ class TopologyVisualizer:
     def _title(graph: nx.DiGraph, diff: TopologyDiff, links: list[_Link]) -> str:
         stamp = graph.graph.get("generated_at") or graph.graph.get("parsed_at") or ""
         kinds = [attrs.get("type") for _, attrs in graph.nodes(data=True)]
-        live_links = sum(1 for link in links if TopologyVisualizer._link_status(link) != "removed")
+        live_links = sum(
+            1 for link in links if TopologyVisualizer._link_status(link) != "removed"
+        )
         lines = [
             f"OSPF topology  |  {kinds.count('router')} routers, {kinds.count('network')} transit networks, "
             f"{live_links} links  |  {stamp}"
         ]
         if diff.baseline_available:
-            lines.append("green = new   red dashed = removed   orange = metric changed   |   cost shown at each interface")
+            lines.append(
+                "green = new   red dashed = removed   orange = metric changed   |   cost shown at each interface"
+            )
         else:
-            lines.append("first run - no previous state to compare against   |   cost shown at each interface")
-        parts = nx.number_weakly_connected_components(graph) if graph.number_of_nodes() else 0
+            lines.append(
+                "first run - no previous state to compare against   |   cost shown at each interface"
+            )
+        parts = (
+            nx.number_weakly_connected_components(graph)
+            if graph.number_of_nodes()
+            else 0
+        )
         if parts > 1:
             lines.append(f"WARNING: topology is split into {parts} disconnected parts")
         if diff.suspect_reasons:
-            held = "baseline NOT updated" if not diff.baseline_updated else "baseline updated (--accept-changes)"
+            held = (
+                "baseline NOT updated"
+                if not diff.baseline_updated
+                else "baseline updated (--accept-changes)"
+            )
             lines.append(f"SUSPECT RUN - possible partial LSDB; {held}")
         return "\\n".join(lines)
 
@@ -410,7 +524,9 @@ class TopologyVisualizer:
             ) from exc
         except (graphviz.CalledProcessError, OSError) as exc:
             source_path = self._save_source(dot, out_dir, stem)
-            raise VisualizationError(f"Graphviz rendering failed ({exc}); DOT source saved to {source_path}") from exc
+            raise VisualizationError(
+                f"Graphviz rendering failed ({exc}); DOT source saved to {source_path}"
+            ) from exc
         logger.info("Rendered topology diagram to %s", rendered)
         return Path(rendered)
 

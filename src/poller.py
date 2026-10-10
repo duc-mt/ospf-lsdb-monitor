@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   poller.py
@@ -52,7 +53,14 @@ from src.vendors import VendorProfile, get_profile
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BasePoller", "ConfigError", "DevicePoller", "FilePoller", "PollerError", "RawLSDB"]
+__all__ = [
+    "BasePoller",
+    "ConfigError",
+    "DevicePoller",
+    "FilePoller",
+    "PollerError",
+    "RawLSDB",
+]
 
 
 def _first_line(exc: BaseException) -> str:
@@ -121,7 +129,9 @@ class DevicePoller(BasePoller):
 
         missing = [k for k in ("host", "username", "password") if not device.get(k)]
         if missing:
-            raise ConfigError(f"{self.config_path}: missing device setting(s): {', '.join(missing)}")
+            raise ConfigError(
+                f"{self.config_path}: missing device setting(s): {', '.join(missing)}"
+            )
 
         try:
             self._port = int(device.get("port", 22))
@@ -130,7 +140,9 @@ class DevicePoller(BasePoller):
             self._banner_timeout = int(device.get("banner_timeout", 20))
             self._read_timeout = int(device.get("read_timeout", 120))
         except (TypeError, ValueError) as exc:
-            raise ConfigError(f"{self.config_path}: numeric device settings must be integers ({exc!r})") from exc
+            raise ConfigError(
+                f"{self.config_path}: numeric device settings must be integers ({exc!r})"
+            ) from exc
 
         self.host = str(device["host"])
         self.device_type = str(device_type or device.get("device_type", "cisco_ios"))
@@ -142,7 +154,9 @@ class DevicePoller(BasePoller):
 
         overrides = device.get("commands") or {}
         if not isinstance(overrides, dict):
-            raise ConfigError(f"{self.config_path}: device.commands must be a mapping (router/network)")
+            raise ConfigError(
+                f"{self.config_path}: device.commands must be a mapping (router/network)"
+            )
         self.commands = {
             which: self.profile.command(which, self.process_id, overrides.get(which))
             for which in ("router", "network")
@@ -187,9 +201,16 @@ class DevicePoller(BasePoller):
                 f"and the timeout settings in {self.config_path}"
             ) from exc
         except (NetmikoBaseException, SSHException, OSError) as exc:
-            raise PollerError(f"SSH session to {self.host} failed: {_first_line(exc)}") from exc
+            raise PollerError(
+                f"SSH session to {self.host} failed: {_first_line(exc)}"
+            ) from exc
 
-        logger.info("Collected LSDB from %s (%d + %d bytes)", self.host, len(router), len(network))
+        logger.info(
+            "Collected LSDB from %s (%d + %d bytes)",
+            self.host,
+            len(router),
+            len(network),
+        )
         return RawLSDB(
             router=router,
             network=network,
@@ -207,11 +228,14 @@ class DevicePoller(BasePoller):
             snippet = output.strip().splitlines()[0] if output.strip() else ""
             raise PollerError(f"Device rejected '{command}': {snippet}")
         if not output.strip() and not allow_empty:
-            raise PollerError(f"'{command}' returned no output - is OSPF running on {self.host}?")
+            raise PollerError(
+                f"'{command}' returned no output - is OSPF running on {self.host}?"
+            )
         return output
 
 
 import concurrent.futures
+
 
 class FilePoller(BasePoller):
     """Replay previously saved CLI output (offline testing, demos, regression tests)."""
@@ -239,7 +263,9 @@ class FilePoller(BasePoller):
             try:
                 return future.result(timeout=self.read_timeout)
             except concurrent.futures.TimeoutError as exc:
-                raise PollerError(f"Timed out reading {path} after {self.read_timeout}s") from exc
+                raise PollerError(
+                    f"Timed out reading {path} after {self.read_timeout}s"
+                ) from exc
             except OSError as exc:
                 raise PollerError(f"Could not read replay file {path}: {exc}") from exc
 
@@ -247,12 +273,12 @@ class FilePoller(BasePoller):
         """Read ``router_lsdb.txt`` (required) and ``network_lsdb.txt`` (optional)."""
         router_path = self.directory / self.ROUTER_FILE
         network_path = self.directory / self.NETWORK_FILE
-        
+
         router = self._read_with_timeout(router_path)
         if not router:
             raise PollerError(f"Required file missing or empty: {router_path}")
         network = self._read_with_timeout(network_path)
-        
+
         return RawLSDB(
             router=router,
             network=network,

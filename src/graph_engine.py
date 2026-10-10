@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 ==============================================================================
 Module Name:   graph_engine.py
@@ -115,7 +116,15 @@ class TopologyDiff:
 
     @property
     def has_changes(self) -> bool:
-        return any((self.added_nodes, self.removed_nodes, self.added_edges, self.removed_edges, self.changed_metrics))
+        return any(
+            (
+                self.added_nodes,
+                self.removed_nodes,
+                self.added_edges,
+                self.removed_edges,
+                self.changed_metrics,
+            )
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -127,8 +136,14 @@ class GraphEngine:
     #: Default data directory — resolved from this file so it works regardless of CWD.
     _DEFAULT_DATA_DIR: Path = Path(__file__).resolve().parent.parent / "data"
 
-    def __init__(self, data_dir: str | os.PathLike | None = None, guard: GuardConfig | None = None) -> None:
-        self.data_dir = Path(data_dir) if data_dir is not None else self._DEFAULT_DATA_DIR
+    def __init__(
+        self,
+        data_dir: str | os.PathLike | None = None,
+        guard: GuardConfig | None = None,
+    ) -> None:
+        self.data_dir = (
+            Path(data_dir) if data_dir is not None else self._DEFAULT_DATA_DIR
+        )
         self.guard = guard or GuardConfig()
         self.current_path = self.data_dir / "current_state.json"
         self.previous_path = self.data_dir / "previous_state.json"
@@ -151,10 +166,14 @@ class GraphEngine:
                 attrs = dict(edge)
                 graph.add_edge(attrs.pop("source"), attrs.pop("target"), **attrs)
         except (KeyError, TypeError, AttributeError) as exc:
-            raise GraphEngineError(f"Parsed topology has an unexpected shape: {exc!r}") from exc
+            raise GraphEngineError(
+                f"Parsed topology has an unexpected shape: {exc!r}"
+            ) from exc
 
         if graph.number_of_nodes() == 0:
-            raise GraphEngineError("Parsed topology contains no nodes; refusing to use it as a baseline")
+            raise GraphEngineError(
+                "Parsed topology contains no nodes; refusing to use it as a baseline"
+            )
         if not nx.is_weakly_connected(graph):
             logger.warning(
                 "Topology is split into %d disconnected pieces - the LSDB may be partial "
@@ -172,7 +191,9 @@ class GraphEngine:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             if payload.get("schema_version") != SCHEMA_VERSION:
-                raise ValueError(f"unsupported schema_version {payload.get('schema_version')!r}")
+                raise ValueError(
+                    f"unsupported schema_version {payload.get('schema_version')!r}"
+                )
             graph = nx.DiGraph(**dict(payload.get("metadata") or {}))
             for node in payload["nodes"]:
                 attrs = dict(node)
@@ -182,20 +203,34 @@ class GraphEngine:
                 graph.add_edge(attrs.pop("source"), attrs.pop("target"), **attrs)
             return graph
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-            logger.warning("Ignoring unreadable state file %s (%s); treating this run as a fresh baseline", path, exc)
+            logger.warning(
+                "Ignoring unreadable state file %s (%s); treating this run as a fresh baseline",
+                path,
+                exc,
+            )
             return None
 
-    def save_graph(self, graph: nx.DiGraph, path: str | os.PathLike | None = None) -> Path:
+    def save_graph(
+        self, graph: nx.DiGraph, path: str | os.PathLike | None = None
+    ) -> Path:
         """Write the graph as JSON (nodes + edges + metadata) atomically."""
         path = Path(path) if path else self.current_path
-        graph.graph["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        graph.graph["generated_at"] = datetime.now(timezone.utc).isoformat(
+            timespec="seconds"
+        )
         payload = {
             "schema_version": SCHEMA_VERSION,
             "metadata": dict(graph.graph),
-            "nodes": [{"id": n, **graph.nodes[n]} for n in sorted(graph.nodes, key=node_sort_key)],
+            "nodes": [
+                {"id": n, **graph.nodes[n]}
+                for n in sorted(graph.nodes, key=node_sort_key)
+            ],
             "edges": [
                 {"source": u, "target": v, **graph.edges[u, v]}
-                for u, v in sorted(graph.edges, key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1])))
+                for u, v in sorted(
+                    graph.edges,
+                    key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1])),
+                )
             ],
         }
         tmp = path.with_name(path.name + ".tmp")
@@ -215,7 +250,9 @@ class GraphEngine:
         try:
             os.replace(self.current_path, self.previous_path)
         except OSError as exc:
-            raise GraphEngineError(f"Could not move {self.current_path} to {self.previous_path}: {exc}") from exc
+            raise GraphEngineError(
+                f"Could not move {self.current_path} to {self.previous_path}: {exc}"
+            ) from exc
         return True
 
     # ------------------------------------------------------------------- compare
@@ -243,18 +280,31 @@ class GraphEngine:
             return sorted(ids, key=node_sort_key)
 
         def by_edge(pairs) -> list:
-            return sorted(pairs, key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1])))
+            return sorted(
+                pairs, key=lambda e: (node_sort_key(e[0]), node_sort_key(e[1]))
+            )
 
         old_nodes, new_nodes = set(old.nodes), set(new.nodes)
         old_edges, new_edges = set(old.edges), set(new.edges)
 
         diff = TopologyDiff(baseline_available=True)
-        diff.added_nodes = [self._node_record(new, n) for n in by_node(new_nodes - old_nodes)]
-        diff.removed_nodes = [self._node_record(old, n) for n in by_node(old_nodes - new_nodes)]
-        diff.added_edges = [self._edge_record(new, u, v) for u, v in by_edge(new_edges - old_edges)]
-        diff.removed_edges = [self._edge_record(old, u, v) for u, v in by_edge(old_edges - new_edges)]
+        diff.added_nodes = [
+            self._node_record(new, n) for n in by_node(new_nodes - old_nodes)
+        ]
+        diff.removed_nodes = [
+            self._node_record(old, n) for n in by_node(old_nodes - new_nodes)
+        ]
+        diff.added_edges = [
+            self._edge_record(new, u, v) for u, v in by_edge(new_edges - old_edges)
+        ]
+        diff.removed_edges = [
+            self._edge_record(old, u, v) for u, v in by_edge(old_edges - new_edges)
+        ]
         for u, v in by_edge(old_edges & new_edges):
-            old_metric, new_metric = old.edges[u, v].get("metric"), new.edges[u, v].get("metric")
+            old_metric, new_metric = (
+                old.edges[u, v].get("metric"),
+                new.edges[u, v].get("metric"),
+            )
             if old_metric != new_metric:
                 record = self._edge_record(new, u, v)
                 record.update(old_metric=old_metric, new_metric=new_metric)
@@ -292,12 +342,17 @@ class GraphEngine:
             before = nx.number_weakly_connected_components(old)
             after = nx.number_weakly_connected_components(new)
             if after > before:
-                reasons.append(f"the topology split into {after} disconnected parts (was {before})")
+                reasons.append(
+                    f"the topology split into {after} disconnected parts (was {before})"
+                )
         return reasons
 
     # ------------------------------------------------------------------ pipeline
     def process(
-        self, parsed: dict[str, Any], accept_changes: bool = False, dry_run: bool = False
+        self,
+        parsed: dict[str, Any],
+        accept_changes: bool = False,
+        dry_run: bool = False,
     ) -> tuple[nx.DiGraph, TopologyDiff]:
         """Build the graph, diff it against the baseline and (if trustworthy) save it.
 
@@ -313,7 +368,9 @@ class GraphEngine:
         graph = self.build_graph(parsed)
         baseline = self.load_graph(self.current_path)
         if baseline is None:
-            baseline = self.load_graph(self.previous_path)  # crash recovery / first run after rotation
+            baseline = self.load_graph(
+                self.previous_path
+            )  # crash recovery / first run after rotation
         diff = self.compare(baseline, graph)
         diff.suspect_reasons = self.assess(baseline, graph)
 
@@ -325,15 +382,19 @@ class GraphEngine:
         if diff.suspect_reasons and not accept_changes:
             diff.baseline_updated = False
             self.save_graph(graph, self.suspect_path)
-            logger.warning("Run looks like a partial LSDB; baseline kept. Observed state saved to %s",
-                           self.suspect_path)
+            logger.warning(
+                "Run looks like a partial LSDB; baseline kept. Observed state saved to %s",
+                self.suspect_path,
+            )
             self._append_changelog(diff, graph)
             return graph, diff
 
         if self.rotate_state():
             logger.debug("Rotated %s -> %s", self.current_path, self.previous_path)
         self.save_graph(graph)
-        self.suspect_path.unlink(missing_ok=True)  # any earlier suspect snapshot is now stale
+        self.suspect_path.unlink(
+            missing_ok=True
+        )  # any earlier suspect snapshot is now stale
         self._append_changelog(diff, graph)
         return graph, diff
 
@@ -341,7 +402,9 @@ class GraphEngine:
         """Append a one-line JSON entry to ``data/changelog.jsonl`` (never raises)."""
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "status": "suspect" if (diff.suspect_reasons and not diff.baseline_updated) else "ok",
+            "status": "suspect"
+            if (diff.suspect_reasons and not diff.baseline_updated)
+            else "ok",
             "nodes": graph.number_of_nodes(),
             "edges": graph.number_of_edges(),
             "added_nodes": len(diff.added_nodes),
@@ -355,4 +418,6 @@ class GraphEngine:
             with self.changelog_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(entry) + "\n")
         except OSError as exc:
-            logger.warning("Could not write to changelog %s: %s", self.changelog_path, exc)
+            logger.warning(
+                "Could not write to changelog %s: %s", self.changelog_path, exc
+            )
