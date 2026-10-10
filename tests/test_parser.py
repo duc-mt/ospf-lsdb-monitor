@@ -15,7 +15,6 @@ Notes:         Requires Python 3.8+
 
 from __future__ import annotations
 
-
 from src.parser import OSPFParser
 from src.vendors.base import (
     KIND_P2P,

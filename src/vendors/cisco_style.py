@@ -15,7 +15,6 @@ Notes:         Requires Python 3.8+
 
 from __future__ import annotations
 
-
 import logging
 import re
 from dataclasses import dataclass, field

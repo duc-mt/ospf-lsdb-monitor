@@ -8,7 +8,6 @@ executable (no system Graphviz required).
 
 from __future__ import annotations
 
-
 import networkx as nx
 import pytest
 

@@ -15,7 +15,6 @@ Notes:         Requires Python 3.8+
 
 from __future__ import annotations
 
-
 import ipaddress
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
