@@ -279,4 +279,4 @@ MIT — see [LICENSE](LICENSE) if present, or contact the author.
 
 ## Author
 
-**Duc Mai** · [ducmai.network@gmail.com](mailto:ducmai.network@gmail.com)
+**Mai Tan Duc** · [ducmai.network@gmail.com](mailto:ducmai.network@gmail.com)
