@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Unit tests for TopologyVisualizer.
 
@@ -6,6 +5,8 @@ These tests verify that ``build_digraph()`` produces correct Graphviz DOT
 source for all node/edge states — without actually invoking the ``dot``
 executable (no system Graphviz required).
 """
+
+from __future__ import annotations
 
 
 import networkx as nx

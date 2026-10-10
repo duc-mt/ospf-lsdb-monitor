@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 
 """
 ==============================================================================
@@ -14,6 +13,8 @@ Usage:         python3 main.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
 """
+
+from __future__ import annotations
 
 
 import argparse

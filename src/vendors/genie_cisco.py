@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """
 ==============================================================================
@@ -13,6 +12,8 @@ Usage:         python3 genie_cisco.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
 """
+
+from __future__ import annotations
 
 
 import importlib
