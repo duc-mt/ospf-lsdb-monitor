@@ -4,7 +4,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   main.py
-Description:   Implementation and logic for main.
+Description:   OSPF LSDB Monitor - orchestrator.  Pipeline:  Poll (SSH) -> Parse (Genie / vendor adapter) -> Engine (NetworkX + diff) -> Visualize (Graphviz)  Usage:     python main.py                           # poll the router in config/settings.yaml     python main.py --config other.yaml       # use a different settings file     python main.py --device-type vyos        # override device.device_type     python main.py --replay samples/vyos     # skip SSH; parse saved CLI output instead     python main.py --save-raw captures/r1    # also keep the raw CLI output (for bug reports / new vendors)     python main.py --accept-changes          # commit this run even if the safety guard flagged it     python main.py -v                        # debug logging  Exit codes: 0 ok | 1 expected failure (config, SSH, parse, ...) | 2 unexpected error             3 run flagged as a possible partial LSDB (baseline kept, see --accept-changes)
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -13,22 +13,6 @@ License:       MIT
 Usage:         python3 main.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""OSPF LSDB Monitor - orchestrator.
-
-Pipeline:  Poll (SSH) -> Parse (Genie / vendor adapter) -> Engine (NetworkX + diff) -> Visualize (Graphviz)
-
-Usage:
-    python main.py                           # poll the router in config/settings.yaml
-    python main.py --config other.yaml       # use a different settings file
-    python main.py --device-type vyos        # override device.device_type
-    python main.py --replay samples/vyos     # skip SSH; parse saved CLI output instead
-    python main.py --save-raw captures/r1    # also keep the raw CLI output (for bug reports / new vendors)
-    python main.py --accept-changes          # commit this run even if the safety guard flagged it
-    python main.py -v                        # debug logging
-
-Exit codes: 0 ok | 1 expected failure (config, SSH, parse, ...) | 2 unexpected error
-            3 run flagged as a possible partial LSDB (baseline kept, see --accept-changes)
 """
 
 

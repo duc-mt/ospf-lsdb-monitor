@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   parser.py
-Description:   Implementation and logic for parser.
+Description:   Parsing layer: raw ``show ... ospf database`` text -> standardized topology dict.  ``OSPFParser`` is vendor-neutral. It looks up the platform's adapter (see ``src/vendors``), which turns raw CLI text into a small neutral model of Type 1 and Type 2 LSAs - via Cisco pyATS/Genie wherever Genie has a parser - and this module flattens that model into nodes and edges.  Output of ``OSPFParser.parse()``::      {       "metadata": {"ospf_process_ids": ["1"], "areas": ["0.0.0.0"], ...},       "nodes": [         {"id": "10.4.1.1", "type": "router", "areas": [...], "resolved": True},         {"id": "net-10.1.2.1", "type": "network", "address": "10.1.2.1",          "dr": "10.4.1.1", "mask": "255.255.255.0", "prefix": "10.1.2.0/24", ...},       ],       "edges": [         {"source": "10.4.1.1", "target": "net-10.1.2.1", "metric": 1,          "link_type": "transit", "area": "0.0.0.0"},       ],     }  Edge model (directed, mirrors how OSPF describes the topology):  * router -> router   : point-to-point (or virtual) link, cost advertised by the source router * router -> network  : router's interface cost onto a transit network (Type 1 link) * network -> router  : attachment from a Type 2 LSA, always metric 0  Stub networks are deliberately not graphed. ``resolved`` is False for nodes that are referenced by a link but have no LSA of their own in the polled database (typically routers or DRs in a different area).
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,38 +12,6 @@ License:       MIT
 Usage:         python3 parser.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Parsing layer: raw ``show ... ospf database`` text -> standardized topology dict.
-
-``OSPFParser`` is vendor-neutral. It looks up the platform's adapter (see
-``src/vendors``), which turns raw CLI text into a small neutral model of Type 1
-and Type 2 LSAs - via Cisco pyATS/Genie wherever Genie has a parser - and this
-module flattens that model into nodes and edges.
-
-Output of ``OSPFParser.parse()``::
-
-    {
-      "metadata": {"ospf_process_ids": ["1"], "areas": ["0.0.0.0"], ...},
-      "nodes": [
-        {"id": "10.4.1.1", "type": "router", "areas": [...], "resolved": True},
-        {"id": "net-10.1.2.1", "type": "network", "address": "10.1.2.1",
-         "dr": "10.4.1.1", "mask": "255.255.255.0", "prefix": "10.1.2.0/24", ...},
-      ],
-      "edges": [
-        {"source": "10.4.1.1", "target": "net-10.1.2.1", "metric": 1,
-         "link_type": "transit", "area": "0.0.0.0"},
-      ],
-    }
-
-Edge model (directed, mirrors how OSPF describes the topology):
-
-* router -> router   : point-to-point (or virtual) link, cost advertised by the source router
-* router -> network  : router's interface cost onto a transit network (Type 1 link)
-* network -> router  : attachment from a Type 2 LSA, always metric 0
-
-Stub networks are deliberately not graphed. ``resolved`` is False for nodes that
-are referenced by a link but have no LSA of their own in the polled database
-(typically routers or DRs in a different area).
 """
 
 

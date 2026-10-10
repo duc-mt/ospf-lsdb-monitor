@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   huawei.py
-Description:   Implementation and logic for huawei.
+Description:   Text adapter for Huawei VRP (``display ospf [pid] lsdb router|network``).  Genie has no Huawei parsers. The layout is documented by Huawei and is a plain ``Key : value`` list::            OSPF Process 1 with Router ID 1.1.1.1                           Area: 0.0.0.0                   Link State Database    Type      : Router   Ls id     : 1.1.1.1   Adv rtr   : 1.1.1.1   Link count: 2      Link ID: 10.1.1.2            <- neighbor RID (P-2-P/Virtual) or DR address (TransNet)      Data   : 10.1.1.1      Link Type: TransNet          <- P-2-P | TransNet | StubNet | Virtual      Metric : 1    Type      : Network   Ls id     : 10.1.1.2             <- DR interface address   Adv rtr   : 2.2.2.2              <- DR router ID   Net mask  : 255.255.255.0      Attached Router: 1.1.1.1      <- some releases omit the colon  Some releases print a ``*`` before ``Link ID``; the patterns accept both forms.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,32 +12,6 @@ License:       MIT
 Usage:         python3 huawei.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Text adapter for Huawei VRP (``display ospf [pid] lsdb router|network``).
-
-Genie has no Huawei parsers. The layout is documented by Huawei and is a plain
-``Key : value`` list::
-
-          OSPF Process 1 with Router ID 1.1.1.1
-                          Area: 0.0.0.0
-                  Link State Database
-
-  Type      : Router
-  Ls id     : 1.1.1.1
-  Adv rtr   : 1.1.1.1
-  Link count: 2
-     Link ID: 10.1.1.2            <- neighbor RID (P-2-P/Virtual) or DR address (TransNet)
-     Data   : 10.1.1.1
-     Link Type: TransNet          <- P-2-P | TransNet | StubNet | Virtual
-     Metric : 1
-
-  Type      : Network
-  Ls id     : 10.1.1.2             <- DR interface address
-  Adv rtr   : 2.2.2.2              <- DR router ID
-  Net mask  : 255.255.255.0
-     Attached Router: 1.1.1.1      <- some releases omit the colon
-
-Some releases print a ``*`` before ``Link ID``; the patterns accept both forms.
 """
 
 

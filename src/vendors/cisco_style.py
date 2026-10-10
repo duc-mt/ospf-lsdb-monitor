@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   cisco_style.py
-Description:   Implementation and logic for cisco_style.
+Description:   Text adapter for platforms that print Cisco-style LSDB detail: FRR (VyOS) and Arista EOS.  Genie has no OSPF parsers for these platforms, which is the case the "no custom regex unless Genie lacks the parser" rule allows. The format is a line-oriented ``Key: value`` layout, so a small state machine over a handful of anchored patterns is enough::      OSPF Router with ID(10.0.0.1) (Instance ID 100) (VRF default)   <- Arista header     OSPF Router with ID (192.0.2.1)                                  <- FRR header         Router Link States (Area 0.0.0.0)       LS Type: Router Links | router-LSA       Link State ID / Advertising Router         Link connected to: a Transit Network | Transit Network          (Link ID) Designated Router address: 10.1.1.1          TOS 0 Metrics: 10 | TOS 0 Metric: 10       Network Mask: /24 | 255.255.255.0         Attached Router: 10.0.0.1  Patterns are deliberately tolerant of the small wording differences between the two (``a Stub Network`` vs ``Stub Network``, ``Metrics`` vs ``Metric``, ...). Only the default VRF is read.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,28 +12,6 @@ License:       MIT
 Usage:         python3 cisco_style.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Text adapter for platforms that print Cisco-style LSDB detail: FRR (VyOS) and Arista EOS.
-
-Genie has no OSPF parsers for these platforms, which is the case the "no custom
-regex unless Genie lacks the parser" rule allows. The format is a line-oriented
-``Key: value`` layout, so a small state machine over a handful of anchored
-patterns is enough::
-
-    OSPF Router with ID(10.0.0.1) (Instance ID 100) (VRF default)   <- Arista header
-    OSPF Router with ID (192.0.2.1)                                  <- FRR header
-        Router Link States (Area 0.0.0.0)
-      LS Type: Router Links | router-LSA
-      Link State ID / Advertising Router
-        Link connected to: a Transit Network | Transit Network
-         (Link ID) Designated Router address: 10.1.1.1
-         TOS 0 Metrics: 10 | TOS 0 Metric: 10
-      Network Mask: /24 | 255.255.255.0
-        Attached Router: 10.0.0.1
-
-Patterns are deliberately tolerant of the small wording differences between the
-two (``a Stub Network`` vs ``Stub Network``, ``Metrics`` vs ``Metric``, ...).
-Only the default VRF is read.
 """
 
 

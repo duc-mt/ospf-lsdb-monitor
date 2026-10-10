@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   test_graph_engine.py
-Description:   Implementation and logic for test_graph_engine.
+Description:   Graph engine tests: diffing, state rotation and the partial-LSDB guard.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -13,7 +13,6 @@ Usage:         python3 test_graph_engine.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
 """
-"""Graph engine tests: diffing, state rotation and the partial-LSDB guard."""
 
 
 import json

@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   __init__.py
-Description:   Implementation and logic for __init__.
+Description:   Vendor registry: one ``VendorProfile`` per Netmiko ``device_type``.  A profile bundles everything platform-specific:  * the CLI commands that dump the router (Type 1) and network (Type 2) LSAs * the text a device prints when it rejects a command * a factory for the adapter that parses the output into the neutral ``Lsdb`` model  To add a platform: write an adapter (see ``base.LsdbAdapter``), then register a profile at the bottom of this file. Nothing else in the project changes.  Verification status of the bundled platforms -------------------------------------------- cisco_ios / cisco_xe   Genie (IOS-XE parsers); exercised with sample IOS output cisco_xr / cisco_nxos  Genie; schema handling exercised with Genie's own fixtures,                        not with raw device text juniper_junos          Genie (per-area split); sample follows the layout Genie's parser expects vyos                   FRR text format; router-LSA layout taken from real FRR 9 output arista_eos             Cisco-style text; router-LSA layout taken from Arista's lab guide huawei / huawei_vrpv8  VRP text; layout taken from Huawei's command reference
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,27 +12,6 @@ License:       MIT
 Usage:         python3 __init__.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Vendor registry: one ``VendorProfile`` per Netmiko ``device_type``.
-
-A profile bundles everything platform-specific:
-
-* the CLI commands that dump the router (Type 1) and network (Type 2) LSAs
-* the text a device prints when it rejects a command
-* a factory for the adapter that parses the output into the neutral ``Lsdb`` model
-
-To add a platform: write an adapter (see ``base.LsdbAdapter``), then register a
-profile at the bottom of this file. Nothing else in the project changes.
-
-Verification status of the bundled platforms
---------------------------------------------
-cisco_ios / cisco_xe   Genie (IOS-XE parsers); exercised with sample IOS output
-cisco_xr / cisco_nxos  Genie; schema handling exercised with Genie's own fixtures,
-                       not with raw device text
-juniper_junos          Genie (per-area split); sample follows the layout Genie's parser expects
-vyos                   FRR text format; router-LSA layout taken from real FRR 9 output
-arista_eos             Cisco-style text; router-LSA layout taken from Arista's lab guide
-huawei / huawei_vrpv8  VRP text; layout taken from Huawei's command reference
 """
 
 

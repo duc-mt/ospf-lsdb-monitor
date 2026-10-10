@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   poller.py
-Description:   Implementation and logic for poller.
+Description:   Polling layer: collects raw OSPF LSDB text from a seed router.  ``DevicePoller`` logs into the router over SSH (Netmiko) and runs the platform's two LSDB commands (taken from the vendor profile in ``src/vendors``). ``BasePoller`` is the extension point: an API-based poller only has to implement ``poll()`` and return a ``RawLSDB``. ``FilePoller`` replays saved CLI output, which is handy for offline testing and for capturing samples (``--save-raw``).
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,14 +12,6 @@ License:       MIT
 Usage:         python3 poller.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Polling layer: collects raw OSPF LSDB text from a seed router.
-
-``DevicePoller`` logs into the router over SSH (Netmiko) and runs the platform's
-two LSDB commands (taken from the vendor profile in ``src/vendors``).
-``BasePoller`` is the extension point: an API-based poller only has to implement
-``poll()`` and return a ``RawLSDB``. ``FilePoller`` replays saved CLI output,
-which is handy for offline testing and for capturing samples (``--save-raw``).
 """
 
 

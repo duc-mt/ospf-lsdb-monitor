@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   visualizer.py
-Description:   Implementation and logic for visualizer.
+Description:   Visualization layer: NetworkX graph + diff report -> Graphviz diagram.  How the drawing is built (conventions follow the graphviz-diagrams skill for network topologies):  * **One line per link.** OSPF describes a link from both ends (router -> segment   cost, segment -> router cost 0, and one cost per direction on point-to-point   links). Drawing every direction as its own arrow doubles the clutter, so the   two directions are merged into a single undirected line and the *cost sits at   the end of the interface that advertises it* (``taillabel``/``headlabel``).   A symmetric point-to-point link gets one centred label instead. * **Interface labels.** Each cost is followed by the advertising router's own   interface address on that link (OSPF carries no interface names or speeds). * **Shapes and colour.** Routers are blue 3D boxes (``router_shape`` setting),   transit networks are diamonds showing prefix and DR, routers/networks that are   only referenced (no LSA of their own) are grey and dashed. Grey never means   "backup link" here. * **Diff colours.** New = green, removed = red + dashed (drawn for this run only),   metric change = orange ``old->new``. * **Weight.** Line thickness follows cost (cheaper = thicker) so the preferred   paths stand out. * **Layout.** ``rankdir`` is chosen automatically: a hub with many neighbours is   drawn left-to-right (compact), small topologies top-to-bottom. * **Areas.** With more than one OSPF area, each area is drawn as a dashed cluster;   ABRs (several areas) stay outside every cluster.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,32 +12,6 @@ License:       MIT
 Usage:         python3 visualizer.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Visualization layer: NetworkX graph + diff report -> Graphviz diagram.
-
-How the drawing is built (conventions follow the graphviz-diagrams skill for
-network topologies):
-
-* **One line per link.** OSPF describes a link from both ends (router -> segment
-  cost, segment -> router cost 0, and one cost per direction on point-to-point
-  links). Drawing every direction as its own arrow doubles the clutter, so the
-  two directions are merged into a single undirected line and the *cost sits at
-  the end of the interface that advertises it* (``taillabel``/``headlabel``).
-  A symmetric point-to-point link gets one centred label instead.
-* **Interface labels.** Each cost is followed by the advertising router's own
-  interface address on that link (OSPF carries no interface names or speeds).
-* **Shapes and colour.** Routers are blue 3D boxes (``router_shape`` setting),
-  transit networks are diamonds showing prefix and DR, routers/networks that are
-  only referenced (no LSA of their own) are grey and dashed. Grey never means
-  "backup link" here.
-* **Diff colours.** New = green, removed = red + dashed (drawn for this run only),
-  metric change = orange ``old->new``.
-* **Weight.** Line thickness follows cost (cheaper = thicker) so the preferred
-  paths stand out.
-* **Layout.** ``rankdir`` is chosen automatically: a hub with many neighbours is
-  drawn left-to-right (compact), small topologies top-to-bottom.
-* **Areas.** With more than one OSPF area, each area is drawn as a dashed cluster;
-  ABRs (several areas) stay outside every cluster.
 """
 
 

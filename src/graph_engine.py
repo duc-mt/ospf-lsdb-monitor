@@ -3,7 +3,7 @@ from __future__ import annotations
 """
 ==============================================================================
 Module Name:   graph_engine.py
-Description:   Implementation and logic for graph_engine.
+Description:   Graph layer: build the NetworkX graph, diff it against the last run, persist state.  State handling (``GraphEngine.process``)::      build new graph     baseline = data/current_state.json (last accepted run), else data/previous_state.json     diff + safety guard (partial-LSDB detection)     if the guard is happy (or --accept-changes):         data/current_state.json  --move-->  data/previous_state.json         write the new graph to data/current_state.json              (atomic)     else:         baseline is left untouched; the observed graph goes to data/suspect_state.json  Why the guard exists: when the seed router loses an adjacency its LSDB can shrink or split, and without protection that degraded view would be saved as the new baseline - the next healthy run would then report a wave of "new" nodes and links. A run is flagged *suspect* when too few of the previously known nodes remain, or when the graph falls apart into more disconnected pieces than before.  The rotation happens only after a graph was built successfully, so a failed poll or parse never replaces the baseline. If the process dies between the rotation and the write, the next run finds no current_state.json and falls back to previous_state.json.
 Author:        Mai Tan Duc <ducmai.network@gmail.com>
 Created:       2026-10-10
 Version:       1.0.0
@@ -12,30 +12,6 @@ License:       MIT
 Usage:         python3 graph_engine.py [options]
 Notes:         Requires Python 3.8+
 ==============================================================================
-"""
-"""Graph layer: build the NetworkX graph, diff it against the last run, persist state.
-
-State handling (``GraphEngine.process``)::
-
-    build new graph
-    baseline = data/current_state.json (last accepted run), else data/previous_state.json
-    diff + safety guard (partial-LSDB detection)
-    if the guard is happy (or --accept-changes):
-        data/current_state.json  --move-->  data/previous_state.json
-        write the new graph to data/current_state.json              (atomic)
-    else:
-        baseline is left untouched; the observed graph goes to data/suspect_state.json
-
-Why the guard exists: when the seed router loses an adjacency its LSDB can shrink
-or split, and without protection that degraded view would be saved as the new
-baseline - the next healthy run would then report a wave of "new" nodes and links.
-A run is flagged *suspect* when too few of the previously known nodes remain, or
-when the graph falls apart into more disconnected pieces than before.
-
-The rotation happens only after a graph was built successfully, so a failed poll
-or parse never replaces the baseline. If the process dies between the rotation and
-the write, the next run finds no current_state.json and falls back to
-previous_state.json.
 """
 
 
