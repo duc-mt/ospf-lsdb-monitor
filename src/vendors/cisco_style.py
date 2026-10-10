@@ -1,3 +1,16 @@
+"""
+==============================================================================
+Module Name:   cisco_style.py
+Description:   Implementation and logic for cisco_style.
+Author:        Mai Tan Duc <ducmai.network@gmail.com>
+Created:       2026-10-10
+Version:       1.0.0
+License:       MIT
+==============================================================================
+Usage:         python3 cisco_style.py [options]
+Notes:         Requires Python 3.8+
+==============================================================================
+"""
 """Text adapter for platforms that print Cisco-style LSDB detail: FRR (VyOS) and Arista EOS.
 
 Genie has no OSPF parsers for these platforms, which is the case the "no custom

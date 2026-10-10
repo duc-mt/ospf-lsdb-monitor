@@ -1,3 +1,16 @@
+"""
+==============================================================================
+Module Name:   visualizer.py
+Description:   Implementation and logic for visualizer.
+Author:        Mai Tan Duc <ducmai.network@gmail.com>
+Created:       2026-10-10
+Version:       1.0.0
+License:       MIT
+==============================================================================
+Usage:         python3 visualizer.py [options]
+Notes:         Requires Python 3.8+
+==============================================================================
+"""
 """Visualization layer: NetworkX graph + diff report -> Graphviz diagram.
 
 How the drawing is built (conventions follow the graphviz-diagrams skill for

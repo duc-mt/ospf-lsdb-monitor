@@ -1,3 +1,16 @@
+"""
+==============================================================================
+Module Name:   test_poller.py
+Description:   Implementation and logic for test_poller.
+Author:        Mai Tan Duc <ducmai.network@gmail.com>
+Created:       2026-10-10
+Version:       1.0.0
+License:       MIT
+==============================================================================
+Usage:         python3 test_poller.py [options]
+Notes:         Requires Python 3.8+
+==============================================================================
+"""
 """Tests for the polling and configuration layer.
 
 These tests cover:
