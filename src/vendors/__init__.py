@@ -36,8 +36,8 @@ huawei / huawei_vrpv8  VRP text; layout taken from Huawei's command reference
 """
 
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from src import TrackerError
 from src.config import ConfigError

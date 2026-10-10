@@ -50,7 +50,7 @@ are referenced by a link but have no LSA of their own in the polled database
 import ipaddress
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src import network_node_id, node_sort_key
@@ -172,7 +172,7 @@ class OSPFParser(BaseParser):
                 "areas": sorted({a for n in nodes.values() for a in n["areas"]}),
                 "router_lsas": len(lsdb.router_lsas),
                 "network_lsas": len(lsdb.network_lsas),
-                "parsed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "parsed_at": datetime.now(UTC).isoformat(timespec="seconds"),
             },
             "nodes": [nodes[k] for k in sorted(nodes, key=node_sort_key)],
             "edges": [

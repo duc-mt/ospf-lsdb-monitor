@@ -60,18 +60,20 @@ _HEADER = re.compile(rf"OSPF Router with ID\s*\(({_IP})\)(.*)")
 _PROCESS = re.compile(r"\((?:Process|Instance) ID\s+([^)\s]+)\)")
 _VRF = re.compile(r"\(VRF\s+([^)\s]+)\)")
 _AREA = re.compile(
-    r"(?:Router|Net(?:work)?)\s+Link\s+States\s*\(Area\s+([\d.]+)\)", re.I
+    r"(?:Router|Net(?:work)?)\s+Link\s+States\s*\(Area\s+([\d.]+)\)", re.IGNORECASE
 )
-_LS_START = re.compile(r"^\s*LS\s+age\s*:", re.I)
-_LS_TYPE = re.compile(r"^\s*LS\s+Type\s*:\s*(.+?)\s*$", re.I)
-_LS_ID = re.compile(rf"^\s*Link\s+State\s+ID\s*:\s*({_IP})", re.I)
-_ADV = re.compile(rf"^\s*Advertising\s+Router\s*:\s*({_IP})", re.I)
-_LINK = re.compile(r"^\s*Link\s+connected\s+to\s*:\s*(?:an?\s+)?(.+?)\s*$", re.I)
-_LINK_ID = re.compile(rf"^\s*\(Link\s+ID\)\s*[^:]*:\s*({_IP})", re.I)
-_LINK_DATA = re.compile(rf"^\s*\(Link\s+Data\)\s*[^:]*:\s*({_IP})", re.I)
-_METRIC = re.compile(r"^\s*TOS\s+0\s+Metrics?\s*:\s*(\d+)", re.I)
-_MASK = re.compile(r"^\s*Network\s+Mask\s*:\s*(\S+)", re.I)
-_ATTACHED = re.compile(rf"^\s*Attached\s+Router\s*:\s*({_IP})", re.I)
+_LS_START = re.compile(r"^\s*LS\s+age\s*:", re.IGNORECASE)
+_LS_TYPE = re.compile(r"^\s*LS\s+Type\s*:\s*(.+?)\s*$", re.IGNORECASE)
+_LS_ID = re.compile(rf"^\s*Link\s+State\s+ID\s*:\s*({_IP})", re.IGNORECASE)
+_ADV = re.compile(rf"^\s*Advertising\s+Router\s*:\s*({_IP})", re.IGNORECASE)
+_LINK = re.compile(
+    r"^\s*Link\s+connected\s+to\s*:\s*(?:an?\s+)?(.+?)\s*$", re.IGNORECASE
+)
+_LINK_ID = re.compile(rf"^\s*\(Link\s+ID\)\s*[^:]*:\s*({_IP})", re.IGNORECASE)
+_LINK_DATA = re.compile(rf"^\s*\(Link\s+Data\)\s*[^:]*:\s*({_IP})", re.IGNORECASE)
+_METRIC = re.compile(r"^\s*TOS\s+0\s+Metrics?\s*:\s*(\d+)", re.IGNORECASE)
+_MASK = re.compile(r"^\s*Network\s+Mask\s*:\s*(\S+)", re.IGNORECASE)
+_ATTACHED = re.compile(rf"^\s*Attached\s+Router\s*:\s*({_IP})", re.IGNORECASE)
 
 DEFAULT_VRF = "default"
 UNKNOWN_AREA = "n/a"  # Arista's per-LSA detail view has no area banner
@@ -153,7 +155,7 @@ class CiscoStyleTextAdapter(LsdbAdapter):
 
     # ---------------------------------------------------------- state machine
     @staticmethod
-    def _scan(raw: str) -> tuple[list[_Lsa], "_Seen"]:
+    def _scan(raw: str) -> tuple[list[_Lsa], _Seen]:
         """Walk the text once and return every LSA found, plus the process IDs seen."""
         seen = _Seen()
         lsas: list[_Lsa] = []

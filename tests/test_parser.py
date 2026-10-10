@@ -20,15 +20,13 @@ crafted ``Lsdb`` objects, so they run without Genie or any network device.
 """
 
 
-import pytest
-
 from src.parser import OSPFParser
 from src.vendors.base import (
     KIND_P2P,
     KIND_STUB,
     KIND_TRANSIT,
-    Lsdb,
     LinkRecord,
+    Lsdb,
     NetworkLsa,
     RouterLsa,
 )

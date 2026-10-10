@@ -99,7 +99,7 @@ class VisualOptions:
     )  # router-ID -> hostname, shown above the ID
 
     @classmethod
-    def from_settings(cls, section: dict[str, Any] | None) -> "VisualOptions":
+    def from_settings(cls, section: dict[str, Any] | None) -> VisualOptions:
         """Build from the ``visualization`` mapping of settings.yaml (missing keys use the defaults).
 
         Raises:
@@ -473,8 +473,10 @@ class TopologyVisualizer:
             1 for link in links if TopologyVisualizer._link_status(link) != "removed"
         )
         lines = [
-            f"OSPF topology  |  {kinds.count('router')} routers, {kinds.count('network')} transit networks, "
-            f"{live_links} links  |  {stamp}"
+            (
+                f"OSPF topology  |  {kinds.count('router')} routers, {kinds.count('network')} transit networks, "
+                f"{live_links} links  |  {stamp}"
+            )
         ]
         if diff.baseline_available:
             lines.append(

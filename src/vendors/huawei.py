@@ -58,17 +58,19 @@ from src.vendors.base import (
 logger = logging.getLogger(__name__)
 
 _IP = r"\d+\.\d+\.\d+\.\d+"
-_PROCESS = re.compile(rf"OSPF\s+Process\s+(\S+)\s+with\s+Router\s+ID\s+({_IP})", re.I)
-_AREA = re.compile(rf"^\s*Area\s*:\s*({_IP}|\d+)\s*$", re.I)
-_TYPE = re.compile(r"^\s*Type\s*:\s*(\S+)", re.I)
-_LS_ID = re.compile(rf"^\s*Ls\s+id\s*:\s*({_IP})", re.I)
-_ADV = re.compile(rf"Adv\s+rtr\s*:\s*({_IP})", re.I)
-_LINK_ID = re.compile(rf"^\s*\*?\s*Link\s+ID\s*:\s*({_IP})", re.I)
-_LINK_DATA = re.compile(rf"^\s*Data\s*:\s*({_IP})", re.I)
-_LINK_TYPE = re.compile(r"^\s*Link\s+Type\s*:\s*(\S+)", re.I)
-_METRIC = re.compile(r"^\s*Metric\s*:\s*(\d+)", re.I)
-_MASK = re.compile(r"^\s*Net\s+mask\s*:\s*(\S+)", re.I)
-_ATTACHED = re.compile(rf"^\s*Attached\s+Router\s*:?\s+({_IP})", re.I)
+_PROCESS = re.compile(
+    rf"OSPF\s+Process\s+(\S+)\s+with\s+Router\s+ID\s+({_IP})", re.IGNORECASE
+)
+_AREA = re.compile(rf"^\s*Area\s*:\s*({_IP}|\d+)\s*$", re.IGNORECASE)
+_TYPE = re.compile(r"^\s*Type\s*:\s*(\S+)", re.IGNORECASE)
+_LS_ID = re.compile(rf"^\s*Ls\s+id\s*:\s*({_IP})", re.IGNORECASE)
+_ADV = re.compile(rf"Adv\s+rtr\s*:\s*({_IP})", re.IGNORECASE)
+_LINK_ID = re.compile(rf"^\s*\*?\s*Link\s+ID\s*:\s*({_IP})", re.IGNORECASE)
+_LINK_DATA = re.compile(rf"^\s*Data\s*:\s*({_IP})", re.IGNORECASE)
+_LINK_TYPE = re.compile(r"^\s*Link\s+Type\s*:\s*(\S+)", re.IGNORECASE)
+_METRIC = re.compile(r"^\s*Metric\s*:\s*(\d+)", re.IGNORECASE)
+_MASK = re.compile(r"^\s*Net\s+mask\s*:\s*(\S+)", re.IGNORECASE)
+_ATTACHED = re.compile(rf"^\s*Attached\s+Router\s*:?\s+({_IP})", re.IGNORECASE)
 
 DEFAULT_AREA = "n/a"
 

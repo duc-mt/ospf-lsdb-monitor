@@ -214,9 +214,9 @@ def test_attachment_edges_have_no_metric_label():
 # ======================================================================================
 # Drawing improvements: one line per link, per-end labels, layout, clusters, options
 # ======================================================================================
-import re  # noqa: E402
+import re
 
-from src.visualizer import VisualOptions  # noqa: E402
+from src.visualizer import VisualOptions
 
 
 def _p2p_graph(fwd: int, back: int, addr: bool = False) -> nx.DiGraph:
@@ -317,7 +317,7 @@ def test_removed_link_is_one_dashed_red_line_even_though_two_directions_were_rem
         "source": s,
         "target": t,
         "source_label": s,
-        "target_label": t,  # noqa: E731
+        "target_label": t,
         "metric": 10,
         "link_type": "point-to-point",
         "area": "0.0.0.0",
@@ -428,8 +428,8 @@ def test_each_area_is_a_dashed_cluster_when_there_are_several():
 
 def test_abr_stays_outside_every_cluster():
     src = _src(_two_area_graph())
-    abr = re.search(r'^(\t+)"?10\.0\.0\.2"? \[', src, re.M)
-    member = re.search(r'^(\t+)"?10\.0\.1\.1"? \[', src, re.M)
+    abr = re.search(r'^(\t+)"?10\.0\.0\.2"? \[', src, re.MULTILINE)
+    member = re.search(r'^(\t+)"?10\.0\.1\.1"? \[', src, re.MULTILINE)
     assert (
         abr.group(1) == "\t" and member.group(1) == "\t\t"
     )  # indentation depth = inside a subgraph or not

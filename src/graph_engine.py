@@ -43,7 +43,7 @@ import json
 import logging
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -78,7 +78,7 @@ class GuardConfig:
     flag_partition: bool = True
 
     @classmethod
-    def from_settings(cls, section: dict[str, Any] | None) -> "GuardConfig":
+    def from_settings(cls, section: dict[str, Any] | None) -> GuardConfig:
         """Build from the ``guard`` mapping of settings.yaml (missing keys use the defaults)."""
         section = section or {}
         try:
@@ -215,9 +215,7 @@ class GraphEngine:
     ) -> Path:
         """Write the graph as JSON (nodes + edges + metadata) atomically."""
         path = Path(path) if path else self.current_path
-        graph.graph["generated_at"] = datetime.now(timezone.utc).isoformat(
-            timespec="seconds"
-        )
+        graph.graph["generated_at"] = datetime.now(UTC).isoformat(timespec="seconds")
         payload = {
             "schema_version": SCHEMA_VERSION,
             "metadata": dict(graph.graph),
@@ -401,7 +399,7 @@ class GraphEngine:
     def _append_changelog(self, diff: TopologyDiff, graph: nx.DiGraph) -> None:
         """Append a one-line JSON entry to ``data/changelog.jsonl`` (never raises)."""
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
             "status": "suspect"
             if (diff.suspect_reasons and not diff.baseline_updated)
             else "ok",

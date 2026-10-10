@@ -25,10 +25,9 @@ which is handy for offline testing and for capturing samples (``--save-raw``).
 
 import logging
 import os
-import socket
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -195,7 +194,7 @@ class DevicePoller(BasePoller):
             raise PollerError(
                 f"Authentication failed for {self.host}: check username, password and enable secret"
             ) from exc
-        except (NetmikoTimeoutException, ReadTimeout, socket.timeout) as exc:
+        except (TimeoutError, NetmikoTimeoutException, ReadTimeout) as exc:
             raise PollerError(
                 f"Timed out talking to {self.host}: {_first_line(exc)}. Check reachability, SSH access "
                 f"and the timeout settings in {self.config_path}"
@@ -215,7 +214,7 @@ class DevicePoller(BasePoller):
             router=router,
             network=network,
             source=self.host,
-            collected_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            collected_at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
 
     def _run(self, conn: Any, key: str, allow_empty: bool = False) -> str:
@@ -283,5 +282,5 @@ class FilePoller(BasePoller):
             router=router,
             network=network,
             source=str(self.directory),
-            collected_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            collected_at=datetime.now(UTC).isoformat(timespec="seconds"),
         )
